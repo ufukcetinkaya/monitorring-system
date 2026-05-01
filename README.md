@@ -56,6 +56,81 @@ npm run dev
 
 Your application will be available at [http://localhost:5173](http://localhost:5173).
 
+## Ping UI and POST API
+
+The app shows ping results sent by remote devices:
+
+- Remote device sends ping result with HTTP POST
+- Web UI periodically fetches latest results
+- Results are listed as text history (latest first)
+
+The frontend reads data from the GET endpoint below.
+
+### Device -> Server Endpoint
+
+- Method: POST
+- Path: /api/ping-results
+- Content-Type: application/json
+
+Request body:
+
+```json
+{
+  "deviceName": "Kamera-01",
+  "deviceAddress": "192.168.1.20",
+  "status": "up",
+  "latencyMs": 21,
+  "checkedAt": "2026-05-01T09:40:00.000Z",
+  "message": "Cihaz yanıt verdi"
+}
+```
+
+Sample response:
+
+```json
+{
+  "ok": true,
+  "stored": {
+    "deviceName": "Kamera-01",
+    "deviceAddress": "192.168.1.20",
+    "status": "up",
+    "latencyMs": 21,
+    "checkedAt": "2026-05-01T09:40:00.000Z",
+    "message": "Cihaz yanıt verdi"
+  }
+}
+```
+
+Example POST from remote device:
+
+```bash
+curl -X POST http://localhost:5173/api/ping-results \
+	-H "Content-Type: application/json" \
+	-d '{"deviceName":"Kamera-01","deviceAddress":"192.168.1.20","status":"up","latencyMs":21,"message":"Cihaz yanıt verdi"}'
+```
+
+### Web UI -> Server Endpoint
+
+- Method: GET
+- Path: /api/ping-results
+
+Sample response:
+
+```json
+{
+  "items": [
+    {
+      "deviceName": "Kamera-01",
+      "deviceAddress": "192.168.1.20",
+      "status": "up",
+      "latencyMs": 21,
+      "checkedAt": "2026-05-01T09:40:00.000Z",
+      "message": "Cihaz yanıt verdi"
+    }
+  ]
+}
+```
+
 ## Production
 
 Build your project for production:
