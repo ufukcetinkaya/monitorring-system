@@ -92,3 +92,8 @@
   text-align: left;
   margin: 0.75rem 0 0;
 }
+
+.ping-ingest-url {
+  text-align: left;
+  margin: 0 0 0.75rem;
+}

@@ -23,12 +23,30 @@ function App() {
   const [loadError, setLoadError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  const publicIngestUrl = (() => {
+    if (typeof window === "undefined") {
+      return "https://ufukcetinkaya.com.tr/api/ping-results";
+    }
+
+    const host = window.location.host;
+    const isLocalHost =
+      host.startsWith("localhost") ||
+      host.startsWith("127.0.0.1") ||
+      host.startsWith("0.0.0.0");
+
+    if (isLocalHost) {
+      return `${window.location.origin}/api/ping-results`;
+    }
+
+    return `https://${host}/api/ping-results`;
+  })();
+
   const fetchPingResults = async () => {
     setIsLoading(true);
     setLoadError("");
 
     try {
-      const response = await fetch("/api/ping-results");
+      const response = await fetch(publicIngestUrl);
       if (!response.ok) {
         throw new Error("Ping sonuçları alınamadı.");
       }
@@ -100,7 +118,7 @@ function App() {
       <div className="card">
         <button
           onClick={() => {
-            fetch("/api/")
+            fetch(publicIngestUrl.replace("/ping-results", "/name"))
               .then((res) => res.json() as Promise<{ name: string }>)
               .then((data) => setName(data.name));
           }}
@@ -114,6 +132,9 @@ function App() {
       </div>
       <div className="card">
         <h2>Uzaktaki Cihaz Ping Durumu</h2>
+        <p className="ping-ingest-url">
+          Cihaz POST URL: <strong>{publicIngestUrl}</strong>
+        </p>
         <button
           onClick={() => {
             void fetchPingResults();

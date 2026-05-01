@@ -56,6 +56,16 @@ npm run dev
 
 Your application will be available at [http://localhost:5173](http://localhost:5173).
 
+## Reverse Proxy (80/443)
+
+For production, publish the app behind a reverse proxy on ports 80/443.
+
+- Port 80: redirect all traffic to HTTPS
+- Port 443: terminate TLS and proxy to app upstream
+- Example Nginx config: `deploy/nginx-reverse-proxy.conf`
+
+This setup ensures remote devices can use a stable HTTPS endpoint.
+
 ## Ping UI and POST API
 
 The app shows ping results sent by remote devices:
@@ -101,12 +111,18 @@ Sample response:
 }
 ```
 
-Example POST from remote device:
+Example POST from remote device (recommended over 443):
 
 ```bash
-curl -X POST http://localhost:5173/api/ping-results \
+curl -X POST https://your-domain.example/api/ping-results \
 	-H "Content-Type: application/json" \
 	-d '{"deviceName":"Kamera-01","deviceAddress":"192.168.1.20","status":"up","latencyMs":21,"message":"Cihaz yanıt verdi"}'
+```
+
+Recommended device URL:
+
+```text
+https://your-domain.example/api/ping-results
 ```
 
 ### Web UI -> Server Endpoint
