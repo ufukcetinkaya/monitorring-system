@@ -29,75 +29,32 @@ const TURKEY_BOUNDS = {
   maxLon: 45,
 };
 
-const CITY_COORDS: Record<string, { lat: number; lon: number }> = {
-  istanbul: { lat: 41.0082, lon: 28.9784 },
-  ankara: { lat: 39.9334, lon: 32.8597 },
-  izmir: { lat: 38.4237, lon: 27.1428 },
-  bursa: { lat: 40.195, lon: 29.06 },
-  antalya: { lat: 36.8969, lon: 30.7133 },
-  adana: { lat: 37.0, lon: 35.3213 },
-  konya: { lat: 37.8713, lon: 32.4846 },
-  kayseri: { lat: 38.7225, lon: 35.4875 },
-  trabzon: { lat: 41.0015, lon: 39.7178 },
-  gaziantep: { lat: 37.0662, lon: 37.3833 },
-  samsun: { lat: 41.2867, lon: 36.33 },
-  van: { lat: 38.4891, lon: 43.4089 },
-  diyarbakir: { lat: 37.9144, lon: 40.2306 },
-  eskisehir: { lat: 39.7767, lon: 30.5206 },
-  mersin: { lat: 36.8, lon: 34.6333 },
-};
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
 
-function hashCode(input: string): number {
-  let hash = 0;
-  for (let index = 0; index < input.length; index += 1) {
-    hash = (hash << 5) - hash + input.charCodeAt(index);
-    hash |= 0;
-  }
-  return Math.abs(hash);
+function latToMercator(lat: number): number {
+  const latRad = (clamp(lat, -85.05112878, 85.05112878) * Math.PI) / 180;
+  return Math.log(Math.tan(Math.PI / 4 + latRad / 2));
 }
 
 function toMapXY(lat: number, lon: number): { x: number; y: number } {
+  const clampedLon = clamp(lon, TURKEY_BOUNDS.minLon, TURKEY_BOUNDS.maxLon);
+  const clampedLat = clamp(lat, TURKEY_BOUNDS.minLat, TURKEY_BOUNDS.maxLat);
+
   const x =
-    ((lon - TURKEY_BOUNDS.minLon) /
+    ((clampedLon - TURKEY_BOUNDS.minLon) /
       (TURKEY_BOUNDS.maxLon - TURKEY_BOUNDS.minLon)) *
     100;
-  const y =
-    (1 -
-      (lat - TURKEY_BOUNDS.minLat) /
-        (TURKEY_BOUNDS.maxLat - TURKEY_BOUNDS.minLat)) *
-    100;
+
+  const top = latToMercator(TURKEY_BOUNDS.maxLat);
+  const bottom = latToMercator(TURKEY_BOUNDS.minLat);
+  const current = latToMercator(clampedLat);
+  const y = ((top - current) / (top - bottom)) * 100;
 
   return {
-    x: Math.min(96, Math.max(4, x)),
-    y: Math.min(90, Math.max(12, y)),
-  };
-}
-
-function inferCoordinates(item: PingResultItem): { lat: number; lon: number } {
-  if (typeof item.latitude === "number" && typeof item.longitude === "number") {
-    return { lat: item.latitude, lon: item.longitude };
-  }
-
-  const lowerName = item.deviceName.toLocaleLowerCase("tr-TR");
-  const namedCity = Object.entries(CITY_COORDS).find(([city]) =>
-    lowerName.includes(city),
-  );
-
-  if (namedCity) {
-    return { lat: namedCity[1].lat, lon: namedCity[1].lon };
-  }
-
-  const seed = hashCode(`${item.deviceName}-${item.deviceAddress}`);
-  const latRatio = (seed % 1000) / 1000;
-  const lonRatio = ((seed / 1000) % 1000) / 1000;
-
-  return {
-    lat:
-      TURKEY_BOUNDS.minLat +
-      latRatio * (TURKEY_BOUNDS.maxLat - TURKEY_BOUNDS.minLat),
-    lon:
-      TURKEY_BOUNDS.minLon +
-      lonRatio * (TURKEY_BOUNDS.maxLon - TURKEY_BOUNDS.minLon),
+    x: clamp(x, 2, 98),
+    y: clamp(y, 2, 98),
   };
 }
 
@@ -188,17 +145,27 @@ function App() {
     return () => clearInterval(timer);
   }, []);
 
-  const points: MapPoint[] = pingResults.map((item, index) => {
-    const location = inferCoordinates(item);
-    const mapped = toMapXY(location.lat, location.lon);
+  const points: MapPoint[] = pingResults
+    .map((item, index) => {
+      if (
+        typeof item.latitude !== "number" ||
+        typeof item.longitude !== "number"
+      ) {
+        return null;
+      }
 
-    return {
-      id: `${item.deviceName}-${item.deviceAddress}-${item.checkedAt}-${index}`,
-      x: mapped.x,
-      y: mapped.y,
-      item,
-    };
-  });
+      const mapped = toMapXY(item.latitude, item.longitude);
+
+      return {
+        id: `${item.deviceName}-${item.deviceAddress}-${item.checkedAt}-${index}`,
+        x: mapped.x,
+        y: mapped.y,
+        item,
+      };
+    })
+    .filter((point): point is MapPoint => point !== null);
+
+  const devicesWithoutCoordinates = pingResults.length - points.length;
 
   const activePoint =
     points.find((point) => point.id === activePointId) ?? points[0];
@@ -226,6 +193,11 @@ function App() {
             {isLoading ? "Yukleniyor..." : "Veriyi Yenile"}
           </button>
           <span className="ingest-url">POST URL: {publicIngestUrl}</span>
+          {devicesWithoutCoordinates > 0 ? (
+            <span className="ingest-url">
+              Koordinat eksik cihaz: {devicesWithoutCoordinates}
+            </span>
+          ) : null}
         </div>
         {loadError ? <p className="ping-error">Hata: {loadError}</p> : null}
       </header>
