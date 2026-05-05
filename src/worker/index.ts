@@ -1,5 +1,9 @@
 import { Hono } from "hono";
-const app = new Hono<{ Bindings: Env }>();
+type WorkerBindings = Env & {
+  RECTIFIER_DB: D1Database;
+};
+
+const app = new Hono<{ Bindings: WorkerBindings }>();
 
 type PingResultItem = {
   deviceName: string;
@@ -17,6 +21,43 @@ app.get("/api/", (c) => c.json({ name: "Cloudflare" }));
 
 app.get("/api/ping-results", (c) => {
   return c.json({ items: pingResults });
+});
+
+app.post("/api/messages", async (c) => {
+  const body = (await c.req.json().catch(() => null)) as {
+    content?: string;
+    sender?: string;
+  } | null;
+
+  if (!body) {
+    return c.json({ error: "Geçersiz JSON payload." }, 400);
+  }
+
+  const content = body.content?.trim();
+  const sender = body.sender?.trim();
+
+  if (!content || !sender) {
+    return c.json({ error: "content ve sender zorunludur." }, 400);
+  }
+
+  try {
+    const result = await c.env.RECTIFIER_DB.prepare(
+      "INSERT INTO messages (content, sender) VALUES (?, ?)",
+    )
+      .bind(content, sender)
+      .run();
+
+    return c.json(
+      {
+        ok: true,
+        id: result.meta.last_row_id,
+        stored: { content, sender },
+      },
+      201,
+    );
+  } catch {
+    return c.json({ error: "Mesaj veritabanına yazılamadı." }, 500);
+  }
 });
 
 app.post("/api/ping-results", async (c) => {
