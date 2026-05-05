@@ -22,17 +22,19 @@ type MapPoint = {
   item: PingResultItem;
 };
 
+type LeafletMapInstance = {
+  remove: () => void;
+  fitBounds: (
+    bounds: [[number, number], [number, number]],
+    options?: Record<string, unknown>,
+  ) => void;
+};
+
 type LeafletApi = {
   map: (
     el: HTMLElement,
     options?: Record<string, unknown>,
-  ) => {
-    remove: () => void;
-    fitBounds: (
-      bounds: [[number, number], [number, number]],
-      options?: Record<string, unknown>,
-    ) => void;
-  };
+  ) => LeafletMapInstance;
   tileLayer: (
     url: string,
     options?: Record<string, unknown>,
@@ -180,10 +182,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [activePointId, setActivePointId] = useState<string | null>(null);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<{
-    remove: () => void;
-    fitBounds: (...args: unknown[]) => void;
-  } | null>(null);
+  const mapRef = useRef<LeafletMapInstance | null>(null);
   const markerLayerRef = useRef<{ clearLayers: () => void } | null>(null);
 
   const publicIngestUrl = (() => {
