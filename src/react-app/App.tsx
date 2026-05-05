@@ -4,7 +4,7 @@ import "./App.css";
 type PingResultItem = {
   deviceName: string;
   deviceAddress: string;
-  status: "up" | "down";
+  status: string;
   latencyMs: number | null;
   voltage: number | null;
   current: number | null;
@@ -160,7 +160,7 @@ function escapeHtml(text: string): string {
 }
 
 function createPopupHtml(item: PingResultItem): string {
-  const statusText = item.status === "up" ? "Aktif" : "Pasif";
+  const statusText = isOnlineStatus(item.status) ? "Aktif" : "Pasif";
 
   return `
     <div style="min-width:220px;font-family:Segoe UI,Tahoma,sans-serif;line-height:1.4;">
@@ -174,6 +174,11 @@ function createPopupHtml(item: PingResultItem): string {
       <div style="font-size:11px;color:#6b7280;margin-top:8px;">${escapeHtml(new Date(item.checkedAt).toLocaleString("tr-TR"))}</div>
     </div>
   `;
+}
+
+function isOnlineStatus(status: string): boolean {
+  const normalized = status.trim().toLocaleLowerCase("tr-TR");
+  return normalized === "up" || normalized === "online";
 }
 
 function App() {
@@ -324,19 +329,25 @@ function App() {
         radius: isActive ? 10 : 8,
         weight: isActive ? 3 : 2,
         color: "#ffffff",
-        fillColor: point.item.status === "up" ? "#0b8a59" : "#c7473f",
+        fillColor: isOnlineStatus(point.item.status) ? "#0b8a59" : "#c7473f",
         fillOpacity: 0.9,
       });
 
-      marker.on("click", () => setActivePointId(point.id));
+      marker.addTo(markerLayerRef.current);
+
       const popup = marker.bindPopup(createPopupHtml(point.item), {
         autoPan: true,
         keepInView: true,
       });
+
+      marker.on("click", () => {
+        setActivePointId(point.id);
+        popup.openPopup();
+      });
+
       if (isActive) {
         popup.openPopup();
       }
-      marker.addTo(markerLayerRef.current);
     });
   }, [points, activePoint]);
 
