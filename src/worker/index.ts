@@ -11,12 +11,51 @@ type PingResultItem = {
   deviceAddress: string;
   status: "up" | "down";
   latencyMs: number | null;
+  voltage: number | null;
+  current: number | null;
+  temperature: number | null;
+  latitude: number | null;
+  longitude: number | null;
   checkedAt: string;
   message: string;
 };
 
-const pingResults: PingResultItem[] = [];
-const MAX_PING_RESULTS = 100;
+function toNumberOrNull(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
+function mapDeviceDataRow(row: Record<string, unknown>): PingResultItem {
+  const status = row.status === "up" ? "up" : "down";
+
+  return {
+    deviceName: String(row.device_name ?? row.deviceName ?? "Bilinmeyen Cihaz"),
+    deviceAddress: String(
+      row.device_address ?? row.deviceAddress ?? "Bilinmeyen Adres",
+    ),
+    status,
+    latencyMs: toNumberOrNull(row.latency_ms ?? row.latencyMs),
+    voltage: toNumberOrNull(row.voltage),
+    current: toNumberOrNull(row.current),
+    temperature: toNumberOrNull(row.temperature),
+    latitude: toNumberOrNull(row.latitude),
+    longitude: toNumberOrNull(row.longitude),
+    checkedAt: String(
+      row.checked_at ?? row.checkedAt ?? new Date().toISOString(),
+    ),
+    message: String(row.message ?? ""),
+  };
+}
 
 function getProvidedToken(
   authorizationHeader: string | undefined,
@@ -65,8 +104,56 @@ function requireIngestToken(c: {
 
 app.get("/api/", (c) => c.json({ name: "Cloudflare" }));
 
-app.get("/api/ping-results", (c) => {
-  return c.json({ items: pingResults });
+app.get("/api/ping-results", async (c) => {
+  try {
+    const snakeCaseResult = await c.env.RECTIFIER_DB.prepare(
+      `SELECT
+        device_name,
+        device_address,
+        status,
+        latency_ms,
+        voltage,
+        current,
+        temperature,
+        latitude,
+        longitude,
+        checked_at,
+        message
+      FROM device_datas
+      ORDER BY checked_at DESC
+      LIMIT 200`,
+    ).all();
+
+    return c.json({
+      items: (snakeCaseResult.results ?? []).map(mapDeviceDataRow),
+    });
+  } catch {
+    try {
+      const camelCaseResult = await c.env.RECTIFIER_DB.prepare(
+        `SELECT
+          deviceName,
+          deviceAddress,
+          status,
+          latencyMs,
+          voltage,
+          current,
+          temperature,
+          latitude,
+          longitude,
+          checkedAt,
+          message
+        FROM device_datas
+        ORDER BY checkedAt DESC
+        LIMIT 200`,
+      ).all();
+
+      return c.json({
+        items: (camelCaseResult.results ?? []).map(mapDeviceDataRow),
+      });
+    } catch {
+      return c.json({ error: "device_datas tablosundan veri okunamadı." }, 500);
+    }
+  }
 });
 
 app.post("/api/messages", async (c) => {
@@ -122,6 +209,11 @@ app.post("/api/ping-results", async (c) => {
     deviceAddress?: string;
     status?: "up" | "down";
     latencyMs?: number | null;
+    voltage?: number | null;
+    current?: number | null;
+    temperature?: number | null;
+    latitude?: number | null;
+    longitude?: number | null;
     checkedAt?: string;
     message?: string;
   } | null;
@@ -147,15 +239,81 @@ app.post("/api/ping-results", async (c) => {
     deviceAddress,
     status,
     latencyMs: typeof body.latencyMs === "number" ? body.latencyMs : null,
+    voltage: typeof body.voltage === "number" ? body.voltage : null,
+    current: typeof body.current === "number" ? body.current : null,
+    temperature: typeof body.temperature === "number" ? body.temperature : null,
+    latitude: typeof body.latitude === "number" ? body.latitude : null,
+    longitude: typeof body.longitude === "number" ? body.longitude : null,
     checkedAt: body.checkedAt ?? new Date().toISOString(),
     message:
       body.message?.trim() ||
       (status === "up" ? "Erişilebilir" : "Erişilemiyor"),
   };
 
-  pingResults.unshift(item);
-  if (pingResults.length > MAX_PING_RESULTS) {
-    pingResults.length = MAX_PING_RESULTS;
+  try {
+    await c.env.RECTIFIER_DB.prepare(
+      `INSERT INTO device_datas (
+        device_name,
+        device_address,
+        status,
+        latency_ms,
+        voltage,
+        current,
+        temperature,
+        latitude,
+        longitude,
+        checked_at,
+        message
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+      .bind(
+        item.deviceName,
+        item.deviceAddress,
+        item.status,
+        item.latencyMs,
+        item.voltage,
+        item.current,
+        item.temperature,
+        item.latitude,
+        item.longitude,
+        item.checkedAt,
+        item.message,
+      )
+      .run();
+  } catch {
+    try {
+      await c.env.RECTIFIER_DB.prepare(
+        `INSERT INTO device_datas (
+          deviceName,
+          deviceAddress,
+          status,
+          latencyMs,
+          voltage,
+          current,
+          temperature,
+          latitude,
+          longitude,
+          checkedAt,
+          message
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+        .bind(
+          item.deviceName,
+          item.deviceAddress,
+          item.status,
+          item.latencyMs,
+          item.voltage,
+          item.current,
+          item.temperature,
+          item.latitude,
+          item.longitude,
+          item.checkedAt,
+          item.message,
+        )
+        .run();
+    } catch {
+      return c.json({ error: "device_datas tablosuna veri yazılamadı." }, 500);
+    }
   }
 
   return c.json({ ok: true, stored: item }, 201);

@@ -1,99 +1,249 @@
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  width: min(1180px, calc(100vw - 2rem));
+  margin: 1rem auto;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
-}
-.logo.cloudflare:hover {
-  filter: drop-shadow(0 0 2em #f6821faa);
+.dashboard {
+  color: #152425;
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.hero {
+  padding: 1.2rem 0 1rem;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
-}
-
-.card {
-  padding: 2em;
-}
-
-.read-the-docs {
-  color: #888;
-}
-
-.ping-result {
-  margin-top: 1rem;
-  padding: 0.75rem;
-  border: 1px solid #444;
-  border-radius: 8px;
-  text-align: left;
-  word-break: break-word;
-}
-
-.ping-label {
-  display: block;
-  margin-bottom: 0.5rem;
-  text-align: left;
-  font-weight: 600;
-}
-
-.card h2 {
-  margin-top: 0;
-  margin-bottom: 1rem;
-  font-size: 1.1rem;
-}
-
-.ping-input {
-  width: 100%;
-  box-sizing: border-box;
-  margin-bottom: 0.75rem;
-  border: 1px solid #555;
-  border-radius: 8px;
-  padding: 0.55rem 0.75rem;
-  background-color: transparent;
-  color: inherit;
-}
-
-.ping-line {
+.hero-kicker {
   margin: 0;
-  padding: 0.35rem 0;
-  border-bottom: 1px dashed #444;
+  font-size: 0.85rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #205f64;
 }
 
-.ping-line:last-child {
-  border-bottom: none;
+.hero h1 {
+  margin: 0.35rem 0;
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  line-height: 1.1;
+  color: #0d1b1c;
+}
+
+.hero-subtitle {
+  max-width: 70ch;
+  margin: 0;
+  color: #365c61;
+}
+
+.hero-actions {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.hero-actions button {
+  border: none;
+  border-radius: 999px;
+  padding: 0.6rem 1.15rem;
+  font-weight: 700;
+  background: linear-gradient(90deg, #0f766e, #14b8a6);
+  color: #fff;
+  cursor: pointer;
+}
+
+.hero-actions button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.ingest-url {
+  font-size: 0.9rem;
+  color: #2f5a60;
+}
+
+.map-panel {
+  position: relative;
+  margin-top: 1rem;
+  border-radius: 28px;
+  min-height: 560px;
+  overflow: hidden;
+  background: radial-gradient(
+    circle at 20% 30%,
+    #f7fffb 0%,
+    #d8f5f1 35%,
+    #c1e4ef 100%
+  );
+  border: 1px solid #a8d4d9;
+  box-shadow: 0 24px 55px rgba(14, 66, 66, 0.16);
+}
+
+.map-panel::before,
+.map-panel::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.map-panel::before {
+  width: 420px;
+  height: 420px;
+  top: -180px;
+  left: -130px;
+  background: rgba(255, 193, 120, 0.25);
+}
+
+.map-panel::after {
+  width: 380px;
+  height: 380px;
+  right: -130px;
+  bottom: -170px;
+  background: rgba(25, 116, 210, 0.2);
+}
+
+.turkey-shape {
+  position: absolute;
+  width: min(94%, 920px);
+  left: 50%;
+  top: 52%;
+  transform: translate(-50%, -50%);
+}
+
+.turkey-shape path {
+  fill: #3f8c97;
+  stroke: #0e4650;
+  stroke-width: 8;
+  opacity: 0.92;
+}
+
+.device-dot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.2);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  cursor: pointer;
+  z-index: 2;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.device-dot.is-up {
+  background: #0b8a59;
+}
+
+.device-dot.is-down {
+  background: #c7473f;
+}
+
+.device-dot.is-active {
+  transform: translate(-50%, -50%) scale(1.15);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26);
+}
+
+.telemetry-popup {
+  position: absolute;
+  right: 1.1rem;
+  top: 1.1rem;
+  width: min(370px, calc(100% - 2rem));
+  border-radius: 20px;
+  background: rgba(11, 22, 24, 0.92);
+  color: #f5f8f7;
+  border: 1px solid rgba(206, 232, 238, 0.25);
+  box-shadow: 0 18px 40px rgba(7, 10, 12, 0.38);
+  padding: 1rem;
+  z-index: 3;
+  backdrop-filter: blur(3px);
+}
+
+.telemetry-popup h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.popup-meta {
+  margin: 0.45rem 0;
+  color: #c7e2df;
+  font-size: 0.9rem;
+}
+
+.popup-status {
+  margin: 0.5rem 0 0.8rem;
+  font-weight: 700;
+}
+
+.popup-status.up {
+  color: #77ffbd;
+}
+
+.popup-status.down {
+  color: #ff9b8d;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.metric-grid div {
+  border-radius: 12px;
+  padding: 0.6rem;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.metric-grid span {
+  display: block;
+  font-size: 0.8rem;
+  color: #bbd2d0;
+}
+
+.metric-grid strong {
+  font-size: 1.05rem;
+}
+
+.popup-message {
+  margin: 0.8rem 0 0;
+  font-size: 0.88rem;
+  color: #d8efec;
+  border-left: 3px solid rgba(55, 205, 180, 0.8);
+  padding-left: 0.6rem;
+}
+
+.telemetry-popup.empty {
+  display: grid;
+  place-items: center;
+  min-height: 160px;
 }
 
 .ping-error {
-  color: #ff6b6b;
-  text-align: left;
-  margin: 0.75rem 0 0;
+  color: #c7473f;
+  margin-top: 0.7rem;
 }
 
-.ping-ingest-url {
-  text-align: left;
-  margin: 0 0 0.75rem;
+@media (max-width: 860px) {
+  .map-panel {
+    min-height: 640px;
+  }
+
+  .telemetry-popup {
+    top: auto;
+    bottom: 0.9rem;
+    right: 0.9rem;
+    left: 0.9rem;
+    width: auto;
+  }
+
+  .device-dot {
+    width: 36px;
+    height: 36px;
+    font-size: 0.62rem;
+  }
 }
