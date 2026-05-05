@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./App.css";
 
 type PingResultItem = {
@@ -17,10 +17,49 @@ type PingResultItem = {
 
 type MapPoint = {
   id: string;
-  x: number;
-  y: number;
+  lat: number;
+  lon: number;
   item: PingResultItem;
 };
+
+type LeafletApi = {
+  map: (
+    el: HTMLElement,
+    options?: Record<string, unknown>,
+  ) => {
+    remove: () => void;
+    fitBounds: (
+      bounds: [[number, number], [number, number]],
+      options?: Record<string, unknown>,
+    ) => void;
+  };
+  tileLayer: (
+    url: string,
+    options?: Record<string, unknown>,
+  ) => {
+    addTo: (target: unknown) => void;
+  };
+  layerGroup: () => {
+    addTo: (target: unknown) => { clearLayers: () => void };
+  };
+  circleMarker: (
+    latlng: [number, number],
+    options?: Record<string, unknown>,
+  ) => {
+    addTo: (target: unknown) => void;
+    on: (eventName: string, cb: () => void) => void;
+    bindPopup: (
+      html: string,
+      options?: Record<string, unknown>,
+    ) => { openPopup: () => void };
+  };
+};
+
+declare global {
+  interface Window {
+    L?: LeafletApi;
+  }
+}
 
 const TURKEY_BOUNDS = {
   minLat: 35.8,
@@ -29,33 +68,54 @@ const TURKEY_BOUNDS = {
   maxLon: 45,
 };
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
+async function loadLeaflet(): Promise<LeafletApi> {
+  if (window.L) {
+    return window.L;
+  }
 
-function latToMercator(lat: number): number {
-  const latRad = (clamp(lat, -85.05112878, 85.05112878) * Math.PI) / 180;
-  return Math.log(Math.tan(Math.PI / 4 + latRad / 2));
-}
+  const styleId = "leaflet-css-cdn";
+  if (!document.getElementById(styleId)) {
+    const link = document.createElement("link");
+    link.id = styleId;
+    link.rel = "stylesheet";
+    link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+    document.head.appendChild(link);
+  }
 
-function toMapXY(lat: number, lon: number): { x: number; y: number } {
-  const clampedLon = clamp(lon, TURKEY_BOUNDS.minLon, TURKEY_BOUNDS.maxLon);
-  const clampedLat = clamp(lat, TURKEY_BOUNDS.minLat, TURKEY_BOUNDS.maxLat);
+  await new Promise<void>((resolve, reject) => {
+    const existingScript = document.querySelector<HTMLScriptElement>(
+      'script[data-leaflet="true"]',
+    );
 
-  const x =
-    ((clampedLon - TURKEY_BOUNDS.minLon) /
-      (TURKEY_BOUNDS.maxLon - TURKEY_BOUNDS.minLon)) *
-    100;
+    if (existingScript) {
+      existingScript.addEventListener("load", () => resolve(), { once: true });
+      existingScript.addEventListener(
+        "error",
+        () => reject(new Error("Leaflet yüklenemedi.")),
+        {
+          once: true,
+        },
+      );
+      if (window.L) {
+        resolve();
+      }
+      return;
+    }
 
-  const top = latToMercator(TURKEY_BOUNDS.maxLat);
-  const bottom = latToMercator(TURKEY_BOUNDS.minLat);
-  const current = latToMercator(clampedLat);
-  const y = ((top - current) / (top - bottom)) * 100;
+    const script = document.createElement("script");
+    script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    script.dataset.leaflet = "true";
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Leaflet yüklenemedi."));
+    document.body.appendChild(script);
+  });
 
-  return {
-    x: clamp(x, 2, 98),
-    y: clamp(y, 2, 98),
-  };
+  if (!window.L) {
+    throw new Error("Leaflet başlatılamadı.");
+  }
+
+  return window.L;
 }
 
 function parseMetric(text: string, aliases: string[]): number | null {
@@ -88,11 +148,43 @@ function withDerivedTelemetry(item: PingResultItem): PingResultItem {
   };
 }
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function createPopupHtml(item: PingResultItem): string {
+  const statusText = item.status === "up" ? "Aktif" : "Pasif";
+
+  return `
+    <div style="min-width:220px;font-family:Segoe UI,Tahoma,sans-serif;line-height:1.4;">
+      <strong style="font-size:14px;">${escapeHtml(item.deviceName)}</strong>
+      <div style="font-size:12px;color:#4b5563;margin:2px 0 8px;">${escapeHtml(item.deviceAddress)}</div>
+      <div style="font-size:12px;margin:3px 0;"><b>Durum:</b> ${statusText}</div>
+      <div style="font-size:12px;margin:3px 0;"><b>Voltaj:</b> ${item.voltage ?? "-"} V</div>
+      <div style="font-size:12px;margin:3px 0;"><b>Akim:</b> ${item.current ?? "-"} A</div>
+      <div style="font-size:12px;margin:3px 0;"><b>Sicaklik:</b> ${item.temperature ?? "-"} C</div>
+      <div style="font-size:12px;margin:3px 0;"><b>Gecikme:</b> ${item.latencyMs ?? "-"} ms</div>
+      <div style="font-size:11px;color:#6b7280;margin-top:8px;">${escapeHtml(new Date(item.checkedAt).toLocaleString("tr-TR"))}</div>
+    </div>
+  `;
+}
+
 function App() {
   const [pingResults, setPingResults] = useState<PingResultItem[]>([]);
   const [loadError, setLoadError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [activePointId, setActivePointId] = useState<string | null>(null);
+  const mapElementRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<{
+    remove: () => void;
+    fitBounds: (...args: unknown[]) => void;
+  } | null>(null);
+  const markerLayerRef = useRef<{ clearLayers: () => void } | null>(null);
 
   const publicIngestUrl = (() => {
     if (typeof window === "undefined") {
@@ -154,12 +246,10 @@ function App() {
         return null;
       }
 
-      const mapped = toMapXY(item.latitude, item.longitude);
-
       return {
         id: `${item.deviceName}-${item.deviceAddress}-${item.checkedAt}-${index}`,
-        x: mapped.x,
-        y: mapped.y,
+        lat: item.latitude,
+        lon: item.longitude,
         item,
       };
     })
@@ -170,8 +260,86 @@ function App() {
   const activePoint =
     points.find((point) => point.id === activePointId) ?? points[0];
 
-  const osmEmbedUrl =
-    "https://www.openstreetmap.org/export/embed.html?bbox=25.5%2C35.8%2C45%2C42.2&layer=mapnik";
+  useEffect(() => {
+    let isMounted = true;
+
+    const initializeMap = async () => {
+      try {
+        const L = await loadLeaflet();
+        if (!isMounted || !mapElementRef.current || mapRef.current) {
+          return;
+        }
+
+        const map = L.map(mapElementRef.current, {
+          zoomControl: true,
+          attributionControl: true,
+        });
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 19,
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        }).addTo(map);
+
+        map.fitBounds(
+          [
+            [TURKEY_BOUNDS.minLat, TURKEY_BOUNDS.minLon],
+            [TURKEY_BOUNDS.maxLat, TURKEY_BOUNDS.maxLon],
+          ],
+          { padding: [20, 20] },
+        );
+
+        mapRef.current = map;
+        markerLayerRef.current = L.layerGroup().addTo(map);
+      } catch (error) {
+        if (isMounted) {
+          setLoadError(
+            error instanceof Error ? error.message : "Harita yüklenemedi.",
+          );
+        }
+      }
+    };
+
+    void initializeMap();
+
+    return () => {
+      isMounted = false;
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+        markerLayerRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!window.L || !markerLayerRef.current) {
+      return;
+    }
+
+    markerLayerRef.current.clearLayers();
+
+    points.forEach((point) => {
+      const isActive = activePoint?.id === point.id;
+      const marker = window.L!.circleMarker([point.lat, point.lon], {
+        radius: isActive ? 10 : 8,
+        weight: isActive ? 3 : 2,
+        color: "#ffffff",
+        fillColor: point.item.status === "up" ? "#0b8a59" : "#c7473f",
+        fillOpacity: 0.9,
+      });
+
+      marker.on("click", () => setActivePointId(point.id));
+      const popup = marker.bindPopup(createPopupHtml(point.item), {
+        autoPan: true,
+        keepInView: true,
+      });
+      if (isActive) {
+        popup.openPopup();
+      }
+      marker.addTo(markerLayerRef.current);
+    });
+  }, [points, activePoint]);
 
   return (
     <main className="dashboard">
@@ -203,75 +371,14 @@ function App() {
       </header>
 
       <section className="map-panel" aria-label="Turkiye cihaz haritasi">
-        <iframe
-          title="OpenStreetMap Turkiye"
-          className="osm-map"
-          src={osmEmbedUrl}
-          loading="lazy"
-          referrerPolicy="no-referrer-when-downgrade"
-        />
+        <div ref={mapElementRef} className="leaflet-map" />
 
-        <a
-          className="osm-attribution"
-          href="https://www.openstreetmap.org/#map=6/39.0/35.0"
-          target="_blank"
-          rel="noreferrer"
-        >
-          OpenStreetMap
-        </a>
-
-        {points.map((point) => (
-          <button
-            key={point.id}
-            type="button"
-            className={`device-dot ${point.item.status === "up" ? "is-up" : "is-down"} ${activePoint?.id === point.id ? "is-active" : ""}`}
-            style={{ left: `${point.x}%`, top: `${point.y}%` }}
-            onClick={() => setActivePointId(point.id)}
-            aria-label={`${point.item.deviceName} cihazini sec`}
-          >
-            <span>{point.item.deviceName.slice(0, 2).toUpperCase()}</span>
-          </button>
-        ))}
-
-        {activePoint ? (
-          <aside className="telemetry-popup" role="status" aria-live="polite">
-            <h2>{activePoint.item.deviceName}</h2>
-            <p className="popup-meta">{activePoint.item.deviceAddress}</p>
-            <p
-              className={`popup-status ${activePoint.item.status === "up" ? "up" : "down"}`}
-            >
-              Durum: {activePoint.item.status === "up" ? "Aktif" : "Pasif"}
-            </p>
-            <div className="metric-grid">
-              <div>
-                <span>Voltaj</span>
-                <strong>{activePoint.item.voltage ?? "-"} V</strong>
-              </div>
-              <div>
-                <span>Akim</span>
-                <strong>{activePoint.item.current ?? "-"} A</strong>
-              </div>
-              <div>
-                <span>Sicaklik</span>
-                <strong>{activePoint.item.temperature ?? "-"} C</strong>
-              </div>
-              <div>
-                <span>Gecikme</span>
-                <strong>{activePoint.item.latencyMs ?? "-"} ms</strong>
-              </div>
-            </div>
-            <p className="popup-meta">
-              Son Guncelleme:{" "}
-              {new Date(activePoint.item.checkedAt).toLocaleString("tr-TR")}
-            </p>
-            <p className="popup-message">{activePoint.item.message}</p>
-          </aside>
-        ) : (
+        {!activePoint ? (
           <aside className="telemetry-popup empty">
             Henüz veri yok. Uzak cihazdan POST ile veri gönderildiğinde burada
             görünecek.
           </aside>
-        )}
+        ) : null}
       </section>
     </main>
   );
