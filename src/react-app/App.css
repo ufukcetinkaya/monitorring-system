@@ -100,19 +100,26 @@
   background: rgba(25, 116, 210, 0.2);
 }
 
-.turkey-shape {
+.osm-map {
   position: absolute;
-  width: min(94%, 920px);
-  left: 50%;
-  top: 52%;
-  transform: translate(-50%, -50%);
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  filter: saturate(1.05) contrast(1.02);
 }
 
-.turkey-shape path {
-  fill: #3f8c97;
-  stroke: #0e4650;
-  stroke-width: 8;
-  opacity: 0.92;
+.osm-attribution {
+  position: absolute;
+  left: 0.7rem;
+  bottom: 0.7rem;
+  z-index: 2;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  color: #0e4650;
+  font-size: 0.74rem;
+  text-decoration: none;
 }
 
 .device-dot {

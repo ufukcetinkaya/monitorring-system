@@ -203,6 +203,9 @@ function App() {
   const activePoint =
     points.find((point) => point.id === activePointId) ?? points[0];
 
+  const osmEmbedUrl =
+    "https://www.openstreetmap.org/export/embed.html?bbox=25.5%2C35.8%2C45%2C42.2&layer=mapnik";
+
   return (
     <main className="dashboard">
       <header className="hero">
@@ -228,14 +231,22 @@ function App() {
       </header>
 
       <section className="map-panel" aria-label="Turkiye cihaz haritasi">
-        <svg
-          className="turkey-shape"
-          viewBox="0 0 1000 420"
-          role="img"
-          aria-label="Turkiye haritasi"
+        <iframe
+          title="OpenStreetMap Turkiye"
+          className="osm-map"
+          src={osmEmbedUrl}
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+        />
+
+        <a
+          className="osm-attribution"
+          href="https://www.openstreetmap.org/#map=6/39.0/35.0"
+          target="_blank"
+          rel="noreferrer"
         >
-          <path d="M24 205L65 171L120 177L170 162L233 170L285 149L347 153L399 137L471 146L537 121L592 136L648 125L702 137L760 119L812 127L856 151L899 154L938 181L974 192L990 216L960 237L929 240L894 259L842 264L801 281L744 275L696 293L635 287L573 304L522 297L474 311L420 303L362 317L302 307L247 318L185 306L140 310L104 291L67 286L38 264L12 240Z" />
-        </svg>
+          OpenStreetMap
+        </a>
 
         {points.map((point) => (
           <button
