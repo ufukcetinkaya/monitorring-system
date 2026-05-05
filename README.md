@@ -76,6 +76,24 @@ The app shows ping results sent by remote devices:
 
 The frontend reads data from the GET endpoint below.
 
+### Ingest Token (Zorunlu)
+
+Veri alan POST endpointleri token ile korunur:
+
+- `POST /api/ping-results`
+- `POST /api/messages`
+
+Worker secret ayarı:
+
+```bash
+wrangler secret put API_INGEST_TOKEN
+```
+
+İsteklerde aşağıdaki başlıklardan birini gönderin:
+
+- `Authorization: Bearer <token>`
+- `X-API-Token: <token>`
+
 ### Device -> Server Endpoint
 
 - Method: POST
@@ -116,6 +134,7 @@ Example POST from remote device (recommended over 443):
 ```bash
 curl -X POST https://your-domain.example/api/ping-results \
 	-H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
 	-d '{"deviceName":"Kamera-01","deviceAddress":"192.168.1.20","status":"up","latencyMs":21,"message":"Cihaz yanıt verdi"}'
 ```
 

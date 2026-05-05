@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 type WorkerBindings = Env & {
   RECTIFIER_DB: D1Database;
+  API_INGEST_TOKEN?: string;
 };
 
 const app = new Hono<{ Bindings: WorkerBindings }>();
@@ -17,6 +18,51 @@ type PingResultItem = {
 const pingResults: PingResultItem[] = [];
 const MAX_PING_RESULTS = 100;
 
+function getProvidedToken(
+  authorizationHeader: string | undefined,
+): string | null {
+  if (!authorizationHeader) {
+    return null;
+  }
+
+  const [scheme, token] = authorizationHeader.split(" ");
+  if (scheme?.toLowerCase() !== "bearer" || !token) {
+    return null;
+  }
+
+  return token.trim();
+}
+
+function requireIngestToken(c: {
+  req: { header: (name: string) => string | undefined };
+  env: WorkerBindings;
+}) {
+  const expectedToken = c.env.API_INGEST_TOKEN?.trim();
+
+  if (!expectedToken) {
+    return new Response(
+      JSON.stringify({ error: "Sunucu token ayarı eksik." }),
+      {
+        status: 500,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  }
+
+  const bearerToken = getProvidedToken(c.req.header("authorization"));
+  const apiTokenHeader = c.req.header("x-api-token")?.trim();
+  const providedToken = bearerToken ?? apiTokenHeader;
+
+  if (!providedToken || providedToken !== expectedToken) {
+    return new Response(JSON.stringify({ error: "Yetkisiz istek." }), {
+      status: 401,
+      headers: { "content-type": "application/json" },
+    });
+  }
+
+  return null;
+}
+
 app.get("/api/", (c) => c.json({ name: "Cloudflare" }));
 
 app.get("/api/ping-results", (c) => {
@@ -24,6 +70,11 @@ app.get("/api/ping-results", (c) => {
 });
 
 app.post("/api/messages", async (c) => {
+  const unauthorizedResponse = requireIngestToken(c);
+  if (unauthorizedResponse) {
+    return unauthorizedResponse;
+  }
+
   const body = (await c.req.json().catch(() => null)) as {
     content?: string;
     sender?: string;
@@ -61,6 +112,11 @@ app.post("/api/messages", async (c) => {
 });
 
 app.post("/api/ping-results", async (c) => {
+  const unauthorizedResponse = requireIngestToken(c);
+  if (unauthorizedResponse) {
+    return unauthorizedResponse;
+  }
+
   const body = (await c.req.json().catch(() => null)) as {
     deviceName?: string;
     deviceAddress?: string;
