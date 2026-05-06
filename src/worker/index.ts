@@ -102,7 +102,76 @@ function requireIngestToken(c: {
   return null;
 }
 
+async function sha256Hex(value: string): Promise<string> {
+  const data = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  const bytes = new Uint8Array(digest);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join(
+    "",
+  );
+}
+
 app.get("/api/", (c) => c.json({ name: "Cloudflare" }));
+
+app.post("/api/login", async (c) => {
+  const body = (await c.req.json().catch(() => null)) as {
+    userName?: string;
+    user_name?: string;
+    password?: string;
+    passwd?: string;
+  } | null;
+
+  if (!body) {
+    return c.json({ error: "Gecersiz JSON payload." }, 400);
+  }
+
+  const userName = (body.userName ?? body.user_name ?? "").trim();
+  const password = (body.password ?? body.passwd ?? "").trim();
+
+  if (!userName || !password) {
+    return c.json({ error: "user_name ve password zorunludur." }, 400);
+  }
+
+  const hashedPassword = await sha256Hex(password);
+
+  try {
+    const schemaQuery = await c.env.RECTIFIER_DB.prepare(
+      `SELECT user_name
+       FROM rectifier_db.user_list
+       WHERE user_name = ?
+         AND lower(passwd) = lower(?)
+       LIMIT 1`,
+    )
+      .bind(userName, hashedPassword)
+      .first<{ user_name: string }>();
+
+    if (schemaQuery?.user_name) {
+      return c.json({ ok: true, userName: schemaQuery.user_name });
+    }
+  } catch {
+    // Schema-qualified query may fail depending on D1 setup.
+  }
+
+  try {
+    const fallbackQuery = await c.env.RECTIFIER_DB.prepare(
+      `SELECT user_name
+       FROM user_list
+       WHERE user_name = ?
+         AND lower(passwd) = lower(?)
+       LIMIT 1`,
+    )
+      .bind(userName, hashedPassword)
+      .first<{ user_name: string }>();
+
+    if (!fallbackQuery?.user_name) {
+      return c.json({ error: "Kullanici adi veya sifre hatali." }, 401);
+    }
+
+    return c.json({ ok: true, userName: fallbackQuery.user_name });
+  } catch {
+    return c.json({ error: "Kullanici dogrulamasi yapilamadi." }, 500);
+  }
+});
 
 app.get("/api/ping-results", async (c) => {
   try {
@@ -208,9 +277,15 @@ app.post("/api/ping-results", async (c) => {
     deviceName?: string;
     deviceAddress?: string;
     status?: "up" | "down";
-    latencyMs?: number | null;
-    voltage?: number | null;
-    current?: number | null;
+    latencyMs?: number | string | null;
+    V1?: number | string | null;
+    V2?: number | string | null;
+    V3?: number | string | null;
+    I1?: number | string | null;
+    I2?: number | string | null;
+    I3?: number | string | null;
+    voltage?: number | string | null;
+    current?: number | string | null;
     temperature?: number | null;
     latitude?: number | null;
     longitude?: number | null;
@@ -234,21 +309,144 @@ app.post("/api/ping-results", async (c) => {
     return c.json({ error: 'status alanı "up" veya "down" olmalıdır.' }, 400);
   }
 
-  const item: PingResultItem = {
+  const item = {
     deviceName,
     deviceAddress,
     status,
-    latencyMs: typeof body.latencyMs === "number" ? body.latencyMs : null,
-    voltage: typeof body.voltage === "number" ? body.voltage : null,
-    current: typeof body.current === "number" ? body.current : null,
-    temperature: typeof body.temperature === "number" ? body.temperature : null,
-    latitude: typeof body.latitude === "number" ? body.latitude : null,
-    longitude: typeof body.longitude === "number" ? body.longitude : null,
+    latencyMs: toNumberOrNull(body.latencyMs),
+    V1: toNumberOrNull(body.V1 ?? body.voltage),
+    V2: toNumberOrNull(body.V2),
+    V3: toNumberOrNull(body.V3),
+    I1: toNumberOrNull(body.I1 ?? body.current),
+    I2: toNumberOrNull(body.I2),
+    I3: toNumberOrNull(body.I3),
+    temperature: toNumberOrNull(body.temperature),
+    latitude: toNumberOrNull(body.latitude),
+    longitude: toNumberOrNull(body.longitude),
     checkedAt: body.checkedAt ?? new Date().toISOString(),
     message:
       body.message?.trim() ||
       (status === "up" ? "Erişilebilir" : "Erişilemiyor"),
   };
+
+  try {
+    await c.env.RECTIFIER_DB.prepare(
+      `INSERT INTO rectifier_db.device_logs (
+        deviceName,
+        deviceAddress,
+        status,
+        latencyMs,
+        V1,
+        V2,
+        V3,
+        I1,
+        I2,
+        I3,
+        temperature,
+        latitude,
+        longitude,
+        message
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+      .bind(
+        item.deviceName,
+        item.deviceAddress,
+        item.status,
+        item.latencyMs,
+        item.V1,
+        item.V2,
+        item.V3,
+        item.I1,
+        item.I2,
+        item.I3,
+        item.temperature,
+        item.latitude,
+        item.longitude,
+        item.message,
+      )
+      .run();
+  } catch {
+    try {
+      await c.env.RECTIFIER_DB.prepare(
+        `INSERT INTO device_logs (
+          deviceName,
+          deviceAddress,
+          status,
+          latencyMs,
+          V1,
+          V2,
+          V3,
+          I1,
+          I2,
+          I3,
+          temperature,
+          latitude,
+          longitude,
+          message
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+        .bind(
+          item.deviceName,
+          item.deviceAddress,
+          item.status,
+          item.latencyMs,
+          item.V1,
+          item.V2,
+          item.V3,
+          item.I1,
+          item.I2,
+          item.I3,
+          item.temperature,
+          item.latitude,
+          item.longitude,
+          item.message,
+        )
+        .run();
+    } catch {
+      try {
+        await c.env.RECTIFIER_DB.prepare(
+          `INSERT INTO rectifier_db.device_logs (
+            device_name,
+            device_address,
+            status,
+            latency_ms,
+            v1,
+            v2,
+            v3,
+            i1,
+            i2,
+            i3,
+            temperature,
+            latitude,
+            longitude,
+            message
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+          .bind(
+            item.deviceName,
+            item.deviceAddress,
+            item.status,
+            item.latencyMs,
+            item.V1,
+            item.V2,
+            item.V3,
+            item.I1,
+            item.I2,
+            item.I3,
+            item.temperature,
+            item.latitude,
+            item.longitude,
+            item.message,
+          )
+          .run();
+      } catch {
+        return c.json(
+          { error: "rectifier_db.device_logs tablosuna veri yazılamadı." },
+          500,
+        );
+      }
+    }
+  }
 
   try {
     await c.env.RECTIFIER_DB.prepare(
@@ -271,8 +469,8 @@ app.post("/api/ping-results", async (c) => {
         item.deviceAddress,
         item.status,
         item.latencyMs,
-        item.voltage,
-        item.current,
+        item.V1,
+        item.I1,
         item.temperature,
         item.latitude,
         item.longitude,
@@ -302,8 +500,8 @@ app.post("/api/ping-results", async (c) => {
           item.deviceAddress,
           item.status,
           item.latencyMs,
-          item.voltage,
-          item.current,
+          item.V1,
+          item.I1,
           item.temperature,
           item.latitude,
           item.longitude,
@@ -311,9 +509,7 @@ app.post("/api/ping-results", async (c) => {
           item.message,
         )
         .run();
-    } catch {
-      return c.json({ error: "device_datas tablosuna veri yazılamadı." }, 500);
-    }
+    } catch {}
   }
 
   return c.json({ ok: true, stored: item }, 201);

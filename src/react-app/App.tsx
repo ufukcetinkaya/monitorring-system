@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import "./App.css";
 
 type PingResultItem = {
@@ -182,13 +182,18 @@ function isOnlineStatus(status: string): boolean {
 }
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [pingResults, setPingResults] = useState<PingResultItem[]>([]);
   const [loadError, setLoadError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [activePointId, setActivePointId] = useState<string | null>(null);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LeafletMapInstance | null>(null);
   const markerLayerRef = useRef<{ clearLayers: () => void } | null>(null);
+  const isRefreshingMarkersRef = useRef(false);
 
   const publicIngestUrl = (() => {
     if (typeof window === "undefined") {
@@ -209,7 +214,6 @@ function App() {
   })();
 
   const fetchPingResults = async () => {
-    setIsLoading(true);
     setLoadError("");
 
     try {
@@ -227,19 +231,21 @@ function App() {
           ? error.message
           : "Sonuçlar alınırken hata oluştu.";
       setLoadError(message);
-    } finally {
-      setIsLoading(false);
     }
   };
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
     void fetchPingResults();
     const timer = setInterval(() => {
       void fetchPingResults();
     }, 5000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [isAuthenticated]);
 
   const points: MapPoint[] = pingResults
     .map((item, index) => {
@@ -262,9 +268,13 @@ function App() {
   const devicesWithoutCoordinates = pingResults.length - points.length;
 
   const activePoint =
-    points.find((point) => point.id === activePointId) ?? points[0];
+    points.find((point) => point.id === activePointId) ?? null;
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
     let isMounted = true;
 
     const initializeMap = async () => {
@@ -314,13 +324,14 @@ function App() {
         markerLayerRef.current = null;
       }
     };
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
-    if (!window.L || !markerLayerRef.current) {
+    if (!isAuthenticated || !window.L || !markerLayerRef.current) {
       return;
     }
 
+    isRefreshingMarkersRef.current = true;
     markerLayerRef.current.clearLayers();
 
     points.forEach((point) => {
@@ -345,30 +356,131 @@ function App() {
         popup.openPopup();
       });
 
+      marker.on("popupclose", () => {
+        if (isRefreshingMarkersRef.current) {
+          return;
+        }
+        setActivePointId(null);
+      });
+
       if (isActive) {
         popup.openPopup();
       }
     });
-  }, [points, activePoint]);
+
+    isRefreshingMarkersRef.current = false;
+  }, [isAuthenticated, points, activePoint]);
+
+  const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const normalizedUsername = username.trim();
+    const normalizedPassword = password.trim();
+
+    if (!normalizedUsername || !normalizedPassword) {
+      setAuthError("Lutfen kullanici adi ve sifre giriniz.");
+      return;
+    }
+
+    setAuthError("");
+    setIsAuthenticating(true);
+
+    try {
+      const response = await fetch("/api/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          user_name: normalizedUsername,
+          password: normalizedPassword,
+        }),
+      });
+
+      const data = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+
+      if (!response.ok) {
+        setAuthError(data.error ?? "Giris yapilamadi.");
+        return;
+      }
+
+      setIsAuthenticated(true);
+    } catch {
+      setAuthError("Sunucuya ulasilamadi. Lutfen tekrar deneyiniz.");
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setUsername("");
+    setPassword("");
+    setAuthError("");
+    setPingResults([]);
+    setLoadError("");
+    setActivePointId(null);
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <main className="auth-screen" aria-label="Kullanici giris sayfasi">
+        <section className="auth-card">
+          <p className="auth-kicker">Device Control Portal</p>
+          <h1>Cihaz İzleme Girişi</h1>
+          <p className="auth-subtitle">
+            Kullanıcı adı ve şifrenizle giriş yaparak cihaz izleme paneline
+            ulaşın.
+          </p>
+
+          <form className="auth-form" onSubmit={handleLogin}>
+            <label htmlFor="username">Kullanıcı Adı</label>
+            <input
+              id="username"
+              type="text"
+              autoComplete="username"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              placeholder="kullanıcı adı"
+            />
+
+            <label htmlFor="password">Şifre</label>
+            <input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="şifre"
+            />
+
+            {authError ? <p className="auth-error">{authError}</p> : null}
+
+            <button type="submit" disabled={isAuthenticating}>
+              {isAuthenticating ? "Doğrulanıyor..." : "Giriş Yap"}
+            </button>
+          </form>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="dashboard">
       <header className="hero">
         <p className="hero-kicker">Rectifier Telemetry Grid</p>
-        <h1>Turkiye Geneli Uzak Cihaz Izleme</h1>
+        <h1>Türkiye Geneli Uzak Cihaz İzleme</h1>
         <p className="hero-subtitle">
-          Uzak cihazdan gelen voltaj, akim ve sicaklik verileri harita uzerinde
-          canli popup ile izlenir.
+          Uzak cihazdan gelen voltaj, akım ve sıcaklık verileri harita üzerinde
+          canlı popup ile izlenir.
         </p>
         <div className="hero-actions">
           <button
-            onClick={() => {
-              void fetchPingResults();
-            }}
-            aria-label="refresh device telemetry"
-            disabled={isLoading}
+            onClick={handleLogout}
+            aria-label="logout from device monitor"
+            className="secondary-button"
           >
-            {isLoading ? "Yukleniyor..." : "Veriyi Yenile"}
+            Çıkış Yap
           </button>
           <span className="ingest-url">POST URL: {publicIngestUrl}</span>
           {devicesWithoutCoordinates > 0 ? (
@@ -380,10 +492,10 @@ function App() {
         {loadError ? <p className="ping-error">Hata: {loadError}</p> : null}
       </header>
 
-      <section className="map-panel" aria-label="Turkiye cihaz haritasi">
+      <section className="map-panel" aria-label="Türkiye cihaz haritası">
         <div ref={mapElementRef} className="leaflet-map" />
 
-        {!activePoint ? (
+        {points.length === 0 ? (
           <aside className="telemetry-popup empty">
             Henüz veri yok. Uzak cihazdan POST ile veri gönderildiğinde burada
             görünecek.
