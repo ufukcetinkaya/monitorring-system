@@ -181,8 +181,31 @@ function isOnlineStatus(status: string): boolean {
   return normalized === "up" || normalized === "online";
 }
 
+const AUTH_SESSION_KEY = "monitoring_auth_session";
+
+function getStoredAuthSession(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return window.sessionStorage.getItem(AUTH_SESSION_KEY) === "1";
+}
+
+function setStoredAuthSession(isAuthenticated: boolean): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (isAuthenticated) {
+    window.sessionStorage.setItem(AUTH_SESSION_KEY, "1");
+    return;
+  }
+
+  window.sessionStorage.removeItem(AUTH_SESSION_KEY);
+}
+
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(getStoredAuthSession);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState("");
@@ -212,6 +235,10 @@ function App() {
 
     return `https://${host}/api/ping-results`;
   })();
+
+  useEffect(() => {
+    setStoredAuthSession(isAuthenticated);
+  }, [isAuthenticated]);
 
   const fetchPingResults = async () => {
     setLoadError("");
@@ -405,6 +432,7 @@ function App() {
       }
 
       setIsAuthenticated(true);
+      setPassword("");
     } catch {
       setAuthError("Sunucuya ulasilamadi. Lutfen tekrar deneyiniz.");
     } finally {
