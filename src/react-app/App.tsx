@@ -496,6 +496,13 @@ function App() {
   return (
     <main className="dashboard">
       <header className="hero">
+        <button
+          onClick={handleLogout}
+          aria-label="logout from device monitor"
+          className="hero-logout"
+        >
+          Çıkış Yap
+        </button>
         <p className="hero-kicker">Rectifier Telemetry Grid</p>
         <h1>Türkiye Geneli Uzak Cihaz İzleme</h1>
         <p className="hero-subtitle">
@@ -503,14 +510,6 @@ function App() {
           canlı popup ile izlenir.
         </p>
         <div className="hero-actions">
-          <button
-            onClick={handleLogout}
-            aria-label="logout from device monitor"
-            className="secondary-button"
-          >
-            Çıkış Yap
-          </button>
-          <span className="ingest-url">POST URL: {publicIngestUrl}</span>
           {devicesWithoutCoordinates > 0 ? (
             <span className="ingest-url">
               Koordinat eksik cihaz: {devicesWithoutCoordinates}

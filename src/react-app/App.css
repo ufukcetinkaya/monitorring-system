@@ -85,7 +85,21 @@
 }
 
 .hero {
+  position: relative;
   padding: 1.2rem 0 1rem;
+}
+
+.hero-logout {
+  position: absolute;
+  top: 0.25rem;
+  right: 0;
+  border-radius: 999px;
+  border: 1px solid #95c9cd;
+  padding: 0.6rem 1.15rem;
+  font-weight: 700;
+  background: #e5f4f4;
+  color: #12494e;
+  cursor: pointer;
 }
 
 .hero-kicker {
@@ -273,6 +287,14 @@
 }
 
 @media (max-width: 860px) {
+  .hero {
+    padding-top: 3.9rem;
+  }
+
+  .hero-logout {
+    top: 0.6rem;
+  }
+
   .map-panel {
     min-height: 640px;
   }
