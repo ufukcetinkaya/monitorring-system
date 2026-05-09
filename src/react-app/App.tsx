@@ -498,7 +498,7 @@ function App() {
   };
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || dashboardView !== "map") {
       return;
     }
 
@@ -508,7 +508,7 @@ function App() {
     }, 5000);
 
     return () => clearInterval(timer);
-  }, [isAuthenticated]);
+  }, [isAuthenticated, dashboardView]);
 
   const points: MapPoint[] = pingResults
     .map((item, index) => {
@@ -590,7 +590,12 @@ function App() {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    if (!isAuthenticated || !window.L || !markerLayerRef.current) {
+    if (
+      !isAuthenticated ||
+      dashboardView !== "map" ||
+      !window.L ||
+      !markerLayerRef.current
+    ) {
       return;
     }
 
@@ -638,7 +643,7 @@ function App() {
     });
 
     isRefreshingMarkersRef.current = false;
-  }, [isAuthenticated, points, activePoint]);
+  }, [isAuthenticated, dashboardView, points, activePoint]);
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
