@@ -711,9 +711,12 @@ function App() {
 
   const selectedDeviceHistory =
     selectedDeviceKey !== null ? (deviceHistory[selectedDeviceKey] ?? []) : [];
+  const sortedDeviceHistory = [...selectedDeviceHistory].sort(
+    (a, b) => new Date(a.checkedAt).getTime() - new Date(b.checkedAt).getTime(),
+  );
   const selectedDeviceLatest =
-    selectedDeviceHistory[selectedDeviceHistory.length - 1] ?? null;
-  const chartHistory = selectedDeviceHistory.slice(-20);
+    sortedDeviceHistory[sortedDeviceHistory.length - 1] ?? null;
+  const chartHistory = sortedDeviceHistory.slice(-20);
   const latestRows = [...chartHistory].reverse().slice(0, 8);
 
   const metrics: MetricKey[] = [
