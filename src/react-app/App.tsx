@@ -22,12 +22,22 @@ type MapPoint = {
   item: PingResultItem;
 };
 
+type DashboardView = "map" | "charts";
+
+type MetricKey = "voltage" | "current" | "temperature" | "latencyMs";
+
 type LeafletMapInstance = {
   remove: () => void;
   fitBounds: (
     bounds: [[number, number], [number, number]],
     options?: Record<string, unknown>,
   ) => void;
+};
+
+type LeafletMouseEvent = {
+  originalEvent?: {
+    preventDefault?: () => void;
+  };
 };
 
 type LeafletApi = {
@@ -49,7 +59,7 @@ type LeafletApi = {
     options?: Record<string, unknown>,
   ) => {
     addTo: (target: unknown) => void;
-    on: (eventName: string, cb: () => void) => void;
+    on: (eventName: string, cb: (event?: LeafletMouseEvent) => void) => void;
     bindPopup: (
       html: string,
       options?: Record<string, unknown>,
@@ -181,6 +191,207 @@ function isOnlineStatus(status: string): boolean {
   return normalized === "up" || normalized === "online";
 }
 
+function getDeviceKey(
+  item: Pick<PingResultItem, "deviceName" | "deviceAddress">,
+) {
+  return `${item.deviceName}::${item.deviceAddress}`;
+}
+
+function formatMetricValue(value: number | null, unit: string): string {
+  if (typeof value !== "number") {
+    return "-";
+  }
+
+  return `${value.toFixed(2)} ${unit}`;
+}
+
+function buildChartPoints(
+  values: Array<number | null>,
+  width: number,
+  height: number,
+  padding: number,
+): string {
+  const validValues = values.filter(
+    (value): value is number => typeof value === "number",
+  );
+
+  if (validValues.length < 2) {
+    return "";
+  }
+
+  const min = Math.min(...validValues);
+  const max = Math.max(...validValues);
+  const domain = max - min || 1;
+  const step =
+    values.length > 1 ? (width - padding * 2) / (values.length - 1) : 0;
+
+  return values
+    .map((value, index) => {
+      if (typeof value !== "number") {
+        return null;
+      }
+
+      const x = padding + index * step;
+      const normalizedY = (value - min) / domain;
+      const y = height - padding - normalizedY * (height - padding * 2);
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    })
+    .filter((point): point is string => point !== null)
+    .join(" ");
+}
+
+function createMetricTitle(key: MetricKey): string {
+  if (key === "voltage") {
+    return "Voltaj";
+  }
+
+  if (key === "current") {
+    return "Akim";
+  }
+
+  if (key === "temperature") {
+    return "Sicaklik";
+  }
+
+  return "Gecikme";
+}
+
+function createMetricUnit(key: MetricKey): string {
+  if (key === "voltage") {
+    return "V";
+  }
+
+  if (key === "current") {
+    return "A";
+  }
+
+  if (key === "temperature") {
+    return "C";
+  }
+
+  return "ms";
+}
+
+function createMetricColor(key: MetricKey): string {
+  if (key === "voltage") {
+    return "#1f8a70";
+  }
+
+  if (key === "current") {
+    return "#1976d2";
+  }
+
+  if (key === "temperature") {
+    return "#d97706";
+  }
+
+  return "#a21caf";
+}
+
+function createMetricValues(
+  history: PingResultItem[],
+  key: MetricKey,
+): Array<number | null> {
+  return history.map((item) => item[key]);
+}
+
+function formatTimeTick(isoDate: string): string {
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  return date.toLocaleTimeString("tr-TR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function createTickIndexes(length: number): number[] {
+  if (length <= 1) {
+    return [0];
+  }
+
+  const indexes = [0, Math.floor((length - 1) / 2), length - 1];
+  return Array.from(new Set(indexes));
+}
+
+function MetricChartCard({
+  title,
+  unit,
+  color,
+  values,
+  labels,
+}: {
+  title: string;
+  unit: string;
+  color: string;
+  values: Array<number | null>;
+  labels: string[];
+}) {
+  const width = 420;
+  const height = 190;
+  const padding = 24;
+  const chartPoints = buildChartPoints(values, width, height, padding);
+  const tickIndexes = createTickIndexes(labels.length);
+  const step =
+    labels.length > 1 ? (width - padding * 2) / (labels.length - 1) : 0;
+  const latestValue =
+    [...values]
+      .reverse()
+      .find((value): value is number => typeof value === "number") ?? null;
+
+  return (
+    <article className="metric-card">
+      <header>
+        <h3>{title}</h3>
+        <p>{formatMetricValue(latestValue, unit)}</p>
+      </header>
+
+      {chartPoints ? (
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          role="img"
+          aria-label={`${title} zaman grafigi`}
+        >
+          <line
+            x1={padding}
+            y1={height - padding}
+            x2={width - padding}
+            y2={height - padding}
+            className="chart-axis"
+          />
+          <line
+            x1={padding}
+            y1={padding}
+            x2={padding}
+            y2={height - padding}
+            className="chart-axis"
+          />
+          <polyline
+            points={chartPoints}
+            stroke={color}
+            className="chart-line"
+          />
+          {tickIndexes.map((index) => (
+            <text
+              key={`${title}-${index}`}
+              x={padding + index * step}
+              y={height - 6}
+              textAnchor="middle"
+              className="chart-tick"
+            >
+              {formatTimeTick(labels[index] ?? "")}
+            </text>
+          ))}
+        </svg>
+      ) : (
+        <p className="chart-empty">Grafik icin yeterli veri yok.</p>
+      )}
+    </article>
+  );
+}
+
 const AUTH_SESSION_KEY = "monitoring_auth_session";
 
 function getStoredAuthSession(): boolean {
@@ -213,6 +424,13 @@ function App() {
   const [pingResults, setPingResults] = useState<PingResultItem[]>([]);
   const [loadError, setLoadError] = useState("");
   const [activePointId, setActivePointId] = useState<string | null>(null);
+  const [dashboardView, setDashboardView] = useState<DashboardView>("map");
+  const [selectedDeviceKey, setSelectedDeviceKey] = useState<string | null>(
+    null,
+  );
+  const [deviceHistory, setDeviceHistory] = useState<
+    Record<string, PingResultItem[]>
+  >({});
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LeafletMapInstance | null>(null);
   const markerLayerRef = useRef<{ clearLayers: () => void } | null>(null);
@@ -250,8 +468,26 @@ function App() {
       }
 
       const data = (await response.json()) as { items: PingResultItem[] };
+      const normalizedItems = (data.items ?? []).map(withDerivedTelemetry);
 
-      setPingResults((data.items ?? []).map(withDerivedTelemetry));
+      setPingResults(normalizedItems);
+      setDeviceHistory((previousHistory) => {
+        const nextHistory = { ...previousHistory };
+
+        normalizedItems.forEach((item) => {
+          const key = getDeviceKey(item);
+          const series = nextHistory[key] ?? [];
+          const latestItem = series[series.length - 1];
+
+          if (latestItem?.checkedAt === item.checkedAt) {
+            return;
+          }
+
+          nextHistory[key] = [...series, item].slice(-80);
+        });
+
+        return nextHistory;
+      });
     } catch (error) {
       const message =
         error instanceof Error
@@ -383,6 +619,12 @@ function App() {
         popup.openPopup();
       });
 
+      marker.on("contextmenu", (event) => {
+        event?.originalEvent?.preventDefault?.();
+        setSelectedDeviceKey(getDeviceKey(point.item));
+        setDashboardView("charts");
+      });
+
       marker.on("popupclose", () => {
         if (isRefreshingMarkersRef.current) {
           return;
@@ -448,7 +690,108 @@ function App() {
     setPingResults([]);
     setLoadError("");
     setActivePointId(null);
+    setDashboardView("map");
+    setSelectedDeviceKey(null);
+    setDeviceHistory({});
   };
+
+  const selectedDeviceHistory =
+    selectedDeviceKey !== null ? (deviceHistory[selectedDeviceKey] ?? []) : [];
+  const selectedDeviceLatest =
+    selectedDeviceHistory[selectedDeviceHistory.length - 1] ?? null;
+  const chartHistory = selectedDeviceHistory.slice(-20);
+  const latestRows = [...chartHistory].reverse().slice(0, 8);
+
+  const metrics: MetricKey[] = [
+    "voltage",
+    "current",
+    "temperature",
+    "latencyMs",
+  ];
+
+  if (dashboardView === "charts" && selectedDeviceLatest) {
+    return (
+      <main className="dashboard charts-dashboard">
+        <header className="hero charts-hero">
+          <div className="charts-top-actions">
+            <button
+              onClick={() => setDashboardView("map")}
+              aria-label="haritaya don"
+              className="hero-back"
+            >
+              Haritaya Don
+            </button>
+            <button
+              onClick={handleLogout}
+              aria-label="logout from device monitor"
+              className="hero-logout"
+            >
+              Cikis Yap
+            </button>
+          </div>
+
+          <p className="hero-kicker">Device Trend Dashboard</p>
+          <h1>{selectedDeviceLatest.deviceName} Grafikleri</h1>
+          <p className="hero-subtitle">
+            {selectedDeviceLatest.deviceAddress} cihazinin son{" "}
+            {chartHistory.length} olcumunden uretilen trend grafigi.
+          </p>
+          <div className="hero-actions">
+            <span className="ingest-url">
+              Son guncelleme:{" "}
+              {new Date(selectedDeviceLatest.checkedAt).toLocaleString("tr-TR")}
+            </span>
+          </div>
+        </header>
+
+        <section className="charts-grid" aria-label="Cihaz metrik grafikleri">
+          {metrics.map((metric) => (
+            <MetricChartCard
+              key={metric}
+              title={createMetricTitle(metric)}
+              unit={createMetricUnit(metric)}
+              color={createMetricColor(metric)}
+              values={createMetricValues(chartHistory, metric)}
+              labels={chartHistory.map((item) => item.checkedAt)}
+            />
+          ))}
+        </section>
+
+        <section
+          className="recent-table-panel"
+          aria-label="Son olcumler tablosu"
+        >
+          <h2>Son Olcumler</h2>
+          <div className="recent-table-wrap">
+            <table className="recent-table">
+              <thead>
+                <tr>
+                  <th>Zaman</th>
+                  <th>Voltaj (V)</th>
+                  <th>Akim (A)</th>
+                  <th>Sicaklik (C)</th>
+                  <th>Gecikme (ms)</th>
+                  <th>Durum</th>
+                </tr>
+              </thead>
+              <tbody>
+                {latestRows.map((row) => (
+                  <tr key={`${row.deviceAddress}-${row.checkedAt}`}>
+                    <td>{new Date(row.checkedAt).toLocaleString("tr-TR")}</td>
+                    <td>{row.voltage ?? "-"}</td>
+                    <td>{row.current ?? "-"}</td>
+                    <td>{row.temperature ?? "-"}</td>
+                    <td>{row.latencyMs ?? "-"}</td>
+                    <td>{isOnlineStatus(row.status) ? "Aktif" : "Pasif"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   if (!isAuthenticated) {
     return (
@@ -510,6 +853,9 @@ function App() {
           canlı popup ile izlenir.
         </p>
         <div className="hero-actions">
+          <span className="ingest-url">
+            Noktaya sag tik: ilgili cihazin grafik sayfasini acar.
+          </span>
           {devicesWithoutCoordinates > 0 ? (
             <span className="ingest-url">
               Koordinat eksik cihaz: {devicesWithoutCoordinates}
