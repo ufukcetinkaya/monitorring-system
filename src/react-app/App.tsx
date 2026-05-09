@@ -700,6 +700,15 @@ function App() {
     setDeviceHistory({});
   };
 
+  const handleBackToMap = () => {
+    if (typeof window === "undefined") {
+      setDashboardView("map");
+      return;
+    }
+
+    window.location.reload();
+  };
+
   const selectedDeviceHistory =
     selectedDeviceKey !== null ? (deviceHistory[selectedDeviceKey] ?? []) : [];
   const selectedDeviceLatest =
@@ -720,7 +729,7 @@ function App() {
         <header className="hero charts-hero">
           <div className="charts-top-actions">
             <button
-              onClick={() => setDashboardView("map")}
+              onClick={handleBackToMap}
               aria-label="haritaya don"
               className="hero-back"
             >
