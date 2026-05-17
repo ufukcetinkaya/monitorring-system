@@ -5,7 +5,7 @@
 }
 
 .auth-screen {
-  min-height: calc(100vh - 2rem);
+  min-height: calc(100dvh - 2rem);
   display: grid;
   place-items: center;
 }
@@ -429,7 +429,66 @@
   color: #1d4348;
 }
 
+@media (max-width: 1100px) {
+  .hero h1 {
+    font-size: clamp(1.6rem, 3.8vw, 2.5rem);
+  }
+
+  .telemetry-popup {
+    width: min(330px, calc(100% - 2rem));
+  }
+
+  .recent-table {
+    min-width: 680px;
+  }
+}
+
+@media (max-width: 960px) {
+  .auth-card {
+    border-radius: 22px;
+    padding: 1.6rem 1.2rem;
+  }
+
+  .hero {
+    padding-top: 3.6rem;
+  }
+
+  .hero-logout {
+    top: 0.5rem;
+  }
+
+  .hero-actions {
+    align-items: flex-start;
+  }
+
+  .map-panel::before {
+    width: 330px;
+    height: 330px;
+    top: -150px;
+    left: -120px;
+  }
+
+  .map-panel::after {
+    width: 300px;
+    height: 300px;
+    right: -120px;
+    bottom: -140px;
+  }
+
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .recent-table {
+    min-width: 620px;
+  }
+}
+
 @media (max-width: 860px) {
+  #root {
+    padding: 0.75rem;
+  }
+
   .hero {
     padding-top: 3.9rem;
   }
@@ -462,14 +521,143 @@
 
   .charts-top-actions {
     flex-wrap: wrap;
+    justify-content: flex-start;
   }
 
   .recent-table-panel {
     padding: 0.85rem;
   }
+
+  .recent-table {
+    min-width: 560px;
+  }
+}
+
+@media (max-width: 640px) {
+  #root {
+    padding: 0.65rem;
+  }
+
+  .auth-screen {
+    min-height: calc(100dvh - 1.3rem);
+  }
+
+  .auth-card {
+    border-radius: 18px;
+    padding: 1.25rem 1rem;
+  }
+
+  .auth-form button,
+  .hero-actions button,
+  .hero-back,
+  .hero-logout {
+    width: 100%;
+    text-align: center;
+  }
+
+  .hero {
+    padding-top: 0.9rem;
+  }
+
+  .hero-logout {
+    position: static;
+    margin-bottom: 0.65rem;
+  }
+
+  .hero h1 {
+    font-size: clamp(1.4rem, 7vw, 2rem);
+  }
+
+  .hero-subtitle {
+    font-size: 0.95rem;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.55rem;
+  }
+
+  .map-panel {
+    border-radius: 18px;
+    min-height: 240px;
+    height: clamp(250px, 50dvh, 440px);
+  }
+
+  .map-panel::before,
+  .map-panel::after {
+    display: none;
+  }
+
+  .telemetry-popup {
+    left: 0.6rem;
+    right: 0.6rem;
+    bottom: 0.6rem;
+    padding: 0.85rem;
+    border-radius: 14px;
+  }
+
+  .metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .charts-top-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .metric-card {
+    border-radius: 18px;
+    padding: 0.85rem;
+  }
+
+  .metric-card header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+  }
+
+  .recent-table {
+    min-width: 520px;
+    font-size: 0.88rem;
+  }
+
+  .recent-table th,
+  .recent-table td {
+    padding: 0.5rem 0.45rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .hero-kicker {
+    letter-spacing: 0.14em;
+    font-size: 0.76rem;
+  }
+
+  .ingest-url {
+    font-size: 0.84rem;
+  }
+
+  .map-panel {
+    min-height: 210px;
+    height: clamp(220px, 46dvh, 360px);
+  }
+
+  .telemetry-popup {
+    font-size: 0.92rem;
+  }
 }
 
 @media (max-height: 700px) {
+  .hero {
+    padding-top: 0.8rem;
+  }
+
+  .hero-logout {
+    position: static;
+    margin-bottom: 0.65rem;
+  }
+
   .map-panel {
     min-height: 240px;
     height: clamp(250px, 50dvh, 480px);
