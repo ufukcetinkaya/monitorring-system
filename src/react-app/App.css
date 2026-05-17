@@ -330,8 +330,8 @@
   margin-top: 1rem;
   border-radius: 24px;
   border: 1px solid #a8d4d9;
-  background: linear-gradient(165deg, #f7fffc, #e2f4f3);
-  box-shadow: 0 18px 40px rgba(14, 66, 66, 0.12);
+  background: #ffffff;
+  box-shadow: none;
   padding: 1rem;
 }
 
@@ -355,8 +355,8 @@
   border-radius: 24px;
   padding: 1rem;
   border: 1px solid #a8d4d9;
-  background: linear-gradient(165deg, #f7fffc, #e2f4f3);
-  box-shadow: 0 18px 40px rgba(14, 66, 66, 0.12);
+  background: #ffffff;
+  box-shadow: none;
 }
 
 .metric-card header {
@@ -427,7 +427,7 @@
   border-radius: 24px;
   border: 1px solid #a8d4d9;
   background: linear-gradient(165deg, #f7fffc, #e2f4f3);
-  box-shadow: 0 18px 40px rgba(14, 66, 66, 0.12);
+  box-shadow: none;
   padding: 1rem;
 }
 

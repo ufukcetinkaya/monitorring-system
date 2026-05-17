@@ -351,18 +351,6 @@ function averageNumbers(values: Array<number | null>): number | null {
   return sum / validValues.length;
 }
 
-function hexToRgba(hexColor: string, alpha: number): string {
-  const hex = hexColor.replace("#", "");
-  if (hex.length !== 6) {
-    return `rgba(0,0,0,${alpha})`;
-  }
-
-  const r = Number.parseInt(hex.slice(0, 2), 16);
-  const g = Number.parseInt(hex.slice(2, 4), 16);
-  const b = Number.parseInt(hex.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
 function createMetricTitle(key: MetricKey): string {
   if (key === "voltage") {
     return "Voltaj Ortalamasi (V1-V2-V3)";
@@ -469,8 +457,6 @@ function MetricChartCard({
             minute: "2-digit",
           }),
         );
-        const useAreaFill = unit === "C" || unit === "ms";
-
         await plotly.newPlot(
           chartRef.current,
           [
@@ -481,8 +467,7 @@ function MetricChartCard({
               mode: "lines+markers",
               line: { width: 3.4, color, shape: "spline", smoothing: 0.7 },
               marker: { size: 5, color, opacity: 1 },
-              fill: useAreaFill ? "tozeroy" : "none",
-              fillcolor: useAreaFill ? hexToRgba(color, 0.18) : undefined,
+              fill: "none",
               hovertemplate: `%{x}<br><b>${title}:</b> %{y:.2f} ${unit}<extra></extra>`,
               connectgaps: true,
             },
