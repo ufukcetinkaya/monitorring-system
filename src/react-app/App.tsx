@@ -519,11 +519,7 @@ function MetricChartCard({
             displaylogo: false,
             displayModeBar: true,
             scrollZoom: true,
-            modeBarButtonsToRemove: [
-              "select2d",
-              "lasso2d",
-              "toggleSpikelines",
-            ],
+            modeBarButtonsToRemove: ["select2d", "lasso2d", "toggleSpikelines"],
           },
         );
       } catch {
