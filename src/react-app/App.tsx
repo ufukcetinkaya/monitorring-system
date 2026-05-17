@@ -156,16 +156,26 @@ function withDerivedTelemetry(item: PingResultItem): PingResultItem {
 
   return {
     ...item,
-    v1: item.v1 ?? item.voltage ?? parseMetric(message, ["v1", "voltage", "volt", "voltaj", "v"]),
+    v1:
+      item.v1 ??
+      item.voltage ??
+      parseMetric(message, ["v1", "voltage", "volt", "voltaj", "v"]),
     v2: item.v2 ?? parseMetric(message, ["v2"]),
     v3: item.v3 ?? parseMetric(message, ["v3"]),
-    i1: item.i1 ?? item.current ?? parseMetric(message, ["i1", "current", "akim", "amp", "a"]),
+    i1:
+      item.i1 ??
+      item.current ??
+      parseMetric(message, ["i1", "current", "akim", "amp", "a"]),
     i2: item.i2 ?? parseMetric(message, ["i2"]),
     i3: item.i3 ?? parseMetric(message, ["i3"]),
     voltage:
-      item.voltage ?? item.v1 ?? parseMetric(message, ["voltage", "volt", "voltaj", "v"]),
+      item.voltage ??
+      item.v1 ??
+      parseMetric(message, ["voltage", "volt", "voltaj", "v"]),
     current:
-      item.current ?? item.i1 ?? parseMetric(message, ["current", "akim", "amp", "a"]),
+      item.current ??
+      item.i1 ??
+      parseMetric(message, ["current", "akim", "amp", "a"]),
     temperature:
       item.temperature ??
       parseMetric(message, ["temperature", "sicaklik", "temp", "c"]),
@@ -209,10 +219,8 @@ function isOnlineStatus(status: string): boolean {
   return normalized === "up" || normalized === "online";
 }
 
-function getDeviceKey(
-  item: Pick<PingResultItem, "deviceName" | "deviceAddress">,
-) {
-  return `${item.deviceName}::${item.deviceAddress}`;
+function getDeviceKey(item: Pick<PingResultItem, "deviceName">) {
+  return item.deviceName;
 }
 
 function formatMetricValue(value: number | null, unit: string): string {
@@ -497,7 +505,10 @@ function App() {
           const series = nextHistory[key] ?? [];
           const latestItem = series[series.length - 1];
 
-          if (latestItem?.checkedAt === item.checkedAt) {
+          if (
+            latestItem?.checkedAt === item.checkedAt &&
+            latestItem?.deviceAddress === item.deviceAddress
+          ) {
             return;
           }
 
