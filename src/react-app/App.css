@@ -171,7 +171,7 @@
   position: relative;
   margin-top: 1rem;
   border-radius: 28px;
-  min-height: 560px;
+  height: clamp(340px, 68dvh, 780px);
   overflow: hidden;
   background: radial-gradient(
     circle at 20% 30%,
@@ -436,7 +436,7 @@
   }
 
   .map-panel {
-    min-height: 640px;
+    height: clamp(300px, 56dvh, 620px);
   }
 
   .telemetry-popup {
@@ -461,5 +461,11 @@
 
   .recent-table-panel {
     padding: 0.85rem;
+  }
+}
+
+@media (max-height: 700px) {
+  .map-panel {
+    height: clamp(260px, 52dvh, 500px);
   }
 }
