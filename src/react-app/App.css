@@ -341,6 +341,17 @@
   color: #13393e;
 }
 
+.scientific-metric-panel h2 {
+  margin-bottom: 0.25rem;
+}
+
+.scientific-metric-meta {
+  margin: 0 0 0.8rem;
+  color: #2f5a60;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
 .scientific-plot {
   width: 100%;
   height: 420px;
@@ -349,6 +360,10 @@
   opacity: 1;
   filter: none;
   backdrop-filter: none;
+}
+
+.scientific-metric-plot {
+  height: 340px;
 }
 
 .metric-card {
@@ -481,6 +496,10 @@
   .scientific-plot {
     height: 380px;
   }
+
+  .scientific-metric-plot {
+    height: 320px;
+  }
 }
 
 @media (max-width: 960px) {
@@ -521,6 +540,10 @@
 
   .scientific-plot {
     height: 340px;
+  }
+
+  .scientific-metric-plot {
+    height: 300px;
   }
 
   .recent-table {
@@ -666,6 +689,10 @@
 
   .scientific-plot {
     height: 300px;
+  }
+
+  .scientific-metric-plot {
+    height: 270px;
   }
 
   .metric-card header {

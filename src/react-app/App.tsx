@@ -473,7 +473,7 @@ function MetricChartCard({
             },
           ],
           {
-            margin: { l: 40, r: 16, t: 8, b: 36 },
+            margin: { l: 54, r: 54, t: 30, b: 52 },
             paper_bgcolor: "#ffffff",
             plot_bgcolor: "#ffffff",
             font: { family: "Segoe UI, Tahoma, sans-serif", color: "#15363a" },
@@ -483,6 +483,7 @@ function MetricChartCard({
             xaxis: {
               showgrid: false,
               tickangle: -20,
+              title: "Zaman",
               tickfont: { color: "#22454a" },
               showspikes: true,
               spikemode: "across",
@@ -492,7 +493,7 @@ function MetricChartCard({
             yaxis: {
               showgrid: true,
               gridcolor: "rgba(44, 96, 102, 0.2)",
-              title: unit,
+              title: `${title} (${unit})`,
               tickfont: { color: "#22454a" },
               showspikes: true,
               spikemode: "across",
@@ -523,23 +524,23 @@ function MetricChartCard({
   }, [title, unit, color, values, labels]);
 
   return (
-    <article className="metric-card">
-      <header>
-        <h3>{title}</h3>
-        <p>{formatMetricValue(latestValue, unit)}</p>
-      </header>
+    <section className="scientific-panel scientific-metric-panel">
+      <h2>{title}</h2>
+      <p className="scientific-metric-meta">
+        Son deger: {formatMetricValue(latestValue, unit)}
+      </p>
 
       {values.length > 0 ? (
         <div
           ref={chartRef}
-          className="metric-plot"
+          className="scientific-plot scientific-metric-plot"
           role="img"
           aria-label={`${title} plotly zaman grafigi`}
         />
       ) : (
         <p className="chart-empty">Grafik icin yeterli veri yok.</p>
       )}
-    </article>
+    </section>
   );
 }
 
