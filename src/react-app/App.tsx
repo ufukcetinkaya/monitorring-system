@@ -295,41 +295,6 @@ function formatMetricValue(value: number | null, unit: string): string {
   return `${value.toFixed(2)} ${unit}`;
 }
 
-function buildChartPoints(
-  values: Array<number | null>,
-  width: number,
-  height: number,
-  padding: number,
-): string {
-  const validValues = values.filter(
-    (value): value is number => typeof value === "number",
-  );
-
-  if (validValues.length < 2) {
-    return "";
-  }
-
-  const min = Math.min(...validValues);
-  const max = Math.max(...validValues);
-  const domain = max - min || 1;
-  const step =
-    values.length > 1 ? (width - padding * 2) / (values.length - 1) : 0;
-
-  return values
-    .map((value, index) => {
-      if (typeof value !== "number") {
-        return null;
-      }
-
-      const x = padding + index * step;
-      const normalizedY = (value - min) / domain;
-      const y = height - padding - normalizedY * (height - padding * 2);
-      return `${x.toFixed(2)},${y.toFixed(2)}`;
-    })
-    .filter((point): point is string => point !== null)
-    .join(" ");
-}
-
 function movingAverage(
   values: Array<number | null>,
   windowSize: number,
@@ -340,9 +305,9 @@ function movingAverage(
 
   return values.map((_, index) => {
     const start = Math.max(0, index - windowSize + 1);
-    const windowValues = values.slice(start, index + 1).filter(
-      (value): value is number => typeof value === "number",
-    );
+    const windowValues = values
+      .slice(start, index + 1)
+      .filter((value): value is number => typeof value === "number");
 
     if (windowValues.length === 0) {
       return null;
@@ -363,13 +328,26 @@ const FIXED_CURRENT_THRESHOLDS = {
   upper: 20,
 };
 
+function averageNumbers(values: Array<number | null>): number | null {
+  const validValues = values.filter(
+    (value): value is number => typeof value === "number",
+  );
+
+  if (validValues.length === 0) {
+    return null;
+  }
+
+  const sum = validValues.reduce((acc, value) => acc + value, 0);
+  return sum / validValues.length;
+}
+
 function createMetricTitle(key: MetricKey): string {
   if (key === "voltage") {
-    return "Voltaj";
+    return "Voltaj Ortalamasi (V1-V2-V3)";
   }
 
   if (key === "current") {
-    return "Akim";
+    return "Akim Ortalamasi (I1-I2-I3)";
   }
 
   if (key === "temperature") {
@@ -415,28 +393,15 @@ function createMetricValues(
   history: PingResultItem[],
   key: MetricKey,
 ): Array<number | null> {
+  if (key === "voltage") {
+    return history.map((item) => averageNumbers([item.v1, item.v2, item.v3]));
+  }
+
+  if (key === "current") {
+    return history.map((item) => averageNumbers([item.i1, item.i2, item.i3]));
+  }
+
   return history.map((item) => item[key]);
-}
-
-function formatTimeTick(isoDate: string): string {
-  const date = new Date(isoDate);
-  if (Number.isNaN(date.getTime())) {
-    return "-";
-  }
-
-  return date.toLocaleTimeString("tr-TR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function createTickIndexes(length: number): number[] {
-  if (length <= 1) {
-    return [0];
-  }
-
-  const indexes = [0, Math.floor((length - 1) / 2), length - 1];
-  return Array.from(new Set(indexes));
 }
 
 function MetricChartCard({
@@ -452,17 +417,90 @@ function MetricChartCard({
   values: Array<number | null>;
   labels: string[];
 }) {
-  const width = 420;
-  const height = 190;
-  const padding = 24;
-  const chartPoints = buildChartPoints(values, width, height, padding);
-  const tickIndexes = createTickIndexes(labels.length);
-  const step =
-    labels.length > 1 ? (width - padding * 2) / (labels.length - 1) : 0;
+  const chartRef = useRef<HTMLDivElement | null>(null);
   const latestValue =
     [...values]
       .reverse()
       .find((value): value is number => typeof value === "number") ?? null;
+
+  useEffect(() => {
+    if (!chartRef.current) {
+      return;
+    }
+
+    if (values.length === 0) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const renderCardPlot = async () => {
+      try {
+        const plotly = await loadPlotly();
+        if (!isMounted || !chartRef.current) {
+          return;
+        }
+
+        const xLabels = labels.map((label) =>
+          new Date(label).toLocaleTimeString("tr-TR", {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        );
+
+        await plotly.newPlot(
+          chartRef.current,
+          [
+            {
+              x: xLabels,
+              y: values,
+              name: title,
+              mode: "lines",
+              line: { width: 2.6, color },
+              connectgaps: true,
+            },
+          ],
+          {
+            margin: { l: 40, r: 16, t: 8, b: 36 },
+            paper_bgcolor: "rgba(0,0,0,0)",
+            plot_bgcolor: "rgba(255,255,255,0.72)",
+            font: { family: "Segoe UI, Tahoma, sans-serif", color: "#24464a" },
+            showlegend: false,
+            xaxis: {
+              showgrid: false,
+              tickangle: -20,
+            },
+            yaxis: {
+              showgrid: true,
+              gridcolor: "rgba(44, 96, 102, 0.14)",
+              title: unit,
+            },
+          },
+          {
+            responsive: true,
+            displaylogo: false,
+            modeBarButtonsToRemove: [
+              "select2d",
+              "lasso2d",
+              "autoScale2d",
+              "toggleSpikelines",
+            ],
+          },
+        );
+      } catch {
+        // Card-level plot errors should not block the rest of the dashboard.
+      }
+    };
+
+    void renderCardPlot();
+
+    return () => {
+      isMounted = false;
+      if (window.Plotly && chartRef.current) {
+        window.Plotly.purge(chartRef.current);
+      }
+    };
+  }, [title, unit, color, values, labels]);
 
   return (
     <article className="metric-card">
@@ -471,43 +509,13 @@ function MetricChartCard({
         <p>{formatMetricValue(latestValue, unit)}</p>
       </header>
 
-      {chartPoints ? (
-        <svg
-          viewBox={`0 0 ${width} ${height}`}
+      {values.length > 0 ? (
+        <div
+          ref={chartRef}
+          className="metric-plot"
           role="img"
-          aria-label={`${title} zaman grafigi`}
-        >
-          <line
-            x1={padding}
-            y1={height - padding}
-            x2={width - padding}
-            y2={height - padding}
-            className="chart-axis"
-          />
-          <line
-            x1={padding}
-            y1={padding}
-            x2={padding}
-            y2={height - padding}
-            className="chart-axis"
-          />
-          <polyline
-            points={chartPoints}
-            stroke={color}
-            className="chart-line"
-          />
-          {tickIndexes.map((index) => (
-            <text
-              key={`${title}-${index}`}
-              x={padding + index * step}
-              y={height - 6}
-              textAnchor="middle"
-              className="chart-tick"
-            >
-              {formatTimeTick(labels[index] ?? "")}
-            </text>
-          ))}
-        </svg>
+          aria-label={`${title} plotly zaman grafigi`}
+        />
       ) : (
         <p className="chart-empty">Grafik icin yeterli veri yok.</p>
       )}
@@ -1093,7 +1101,10 @@ function App() {
           </div>
         </header>
 
-        <section className="scientific-panel" aria-label="Bilimsel trend grafigi">
+        <section
+          className="scientific-panel"
+          aria-label="Bilimsel trend grafigi"
+        >
           <h2>Bilimsel Trend Grafigi (MA(3) ve Sabit Esikler)</h2>
           <div ref={scientificChartRef} className="scientific-plot" />
         </section>

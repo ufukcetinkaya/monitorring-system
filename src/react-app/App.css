@@ -382,6 +382,13 @@
   background: rgba(255, 255, 255, 0.75);
 }
 
+.metric-plot {
+  width: 100%;
+  height: 200px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.75);
+}
+
 .chart-axis {
   stroke: #badde0;
   stroke-width: 1;
@@ -637,6 +644,10 @@
   .metric-card {
     border-radius: 18px;
     padding: 0.85rem;
+  }
+
+  .metric-plot {
+    height: 185px;
   }
 
   .scientific-panel {
