@@ -344,6 +344,11 @@
 .scientific-plot {
   width: 100%;
   height: 420px;
+  background: #ffffff;
+  border: 1px solid #d5ebed;
+  opacity: 1;
+  filter: none;
+  backdrop-filter: none;
 }
 
 .metric-card {
@@ -388,6 +393,9 @@
   border-radius: 14px;
   background: #ffffff;
   border: 1px solid #d5ebed;
+  opacity: 1;
+  filter: none;
+  backdrop-filter: none;
 }
 
 .chart-axis {

@@ -489,7 +489,7 @@ function MetricChartCard({
           ],
           {
             margin: { l: 40, r: 16, t: 8, b: 36 },
-            paper_bgcolor: "rgba(0,0,0,0)",
+            paper_bgcolor: "#ffffff",
             plot_bgcolor: "#ffffff",
             font: { family: "Segoe UI, Tahoma, sans-serif", color: "#15363a" },
             showlegend: false,
@@ -1045,8 +1045,8 @@ function App() {
           traces,
           {
             margin: { l: 54, r: 54, t: 30, b: 52 },
-            paper_bgcolor: "rgba(0,0,0,0)",
-            plot_bgcolor: "rgba(255,255,255,0.72)",
+            paper_bgcolor: "#ffffff",
+            plot_bgcolor: "#ffffff",
             font: { family: "Segoe UI, Tahoma, sans-serif", color: "#15363a" },
             legend: { orientation: "h", y: 1.15, x: 0 },
             hovermode: "x unified",
