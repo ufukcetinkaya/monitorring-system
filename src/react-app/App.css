@@ -1,6 +1,7 @@
 #root {
-  width: min(1180px, calc(100vw - 2rem));
-  margin: 1rem auto;
+  width: min(1180px, 100vw);
+  margin: 0 auto;
+  padding: clamp(0.75rem, 1.6vw, 1rem);
 }
 
 .auth-screen {
@@ -170,8 +171,10 @@
 .map-panel {
   position: relative;
   margin-top: 1rem;
+  width: 100%;
   border-radius: 28px;
-  height: clamp(340px, 68dvh, 780px);
+  min-height: 300px;
+  height: clamp(340px, 62dvh, 780px);
   overflow: hidden;
   background: radial-gradient(
     circle at 20% 30%,
@@ -436,7 +439,9 @@
   }
 
   .map-panel {
-    height: clamp(300px, 56dvh, 620px);
+    min-height: 260px;
+    height: clamp(280px, 54dvh, 600px);
+    border-radius: 22px;
   }
 
   .telemetry-popup {
@@ -466,6 +471,7 @@
 
 @media (max-height: 700px) {
   .map-panel {
-    height: clamp(260px, 52dvh, 500px);
+    min-height: 240px;
+    height: clamp(250px, 50dvh, 480px);
   }
 }
