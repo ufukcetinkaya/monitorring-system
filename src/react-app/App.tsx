@@ -82,12 +82,17 @@ type PlotlyTrace = {
     width?: number;
     color?: string;
     dash?: "solid" | "dot";
+    shape?: "linear" | "spline";
+    smoothing?: number;
   };
   marker?: {
     size?: number;
     color?: string;
     opacity?: number;
   };
+  fill?: "tozeroy" | "none";
+  fillcolor?: string;
+  hovertemplate?: string;
   yaxis?: "y" | "y2";
   connectgaps?: boolean;
 };
@@ -346,6 +351,18 @@ function averageNumbers(values: Array<number | null>): number | null {
   return sum / validValues.length;
 }
 
+function hexToRgba(hexColor: string, alpha: number): string {
+  const hex = hexColor.replace("#", "");
+  if (hex.length !== 6) {
+    return `rgba(0,0,0,${alpha})`;
+  }
+
+  const r = Number.parseInt(hex.slice(0, 2), 16);
+  const g = Number.parseInt(hex.slice(2, 4), 16);
+  const b = Number.parseInt(hex.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 function createMetricTitle(key: MetricKey): string {
   if (key === "voltage") {
     return "Voltaj Ortalamasi (V1-V2-V3)";
@@ -452,6 +469,7 @@ function MetricChartCard({
             minute: "2-digit",
           }),
         );
+        const useAreaFill = unit === "C" || unit === "ms";
 
         await plotly.newPlot(
           chartRef.current,
@@ -461,8 +479,11 @@ function MetricChartCard({
               y: values,
               name: title,
               mode: "lines+markers",
-              line: { width: 3.4, color },
+              line: { width: 3.4, color, shape: "spline", smoothing: 0.7 },
               marker: { size: 5, color, opacity: 1 },
+              fill: useAreaFill ? "tozeroy" : "none",
+              fillcolor: useAreaFill ? hexToRgba(color, 0.18) : undefined,
+              hovertemplate: `%{x}<br><b>${title}:</b> %{y:.2f} ${unit}<extra></extra>`,
               connectgaps: true,
             },
           ],
@@ -472,25 +493,35 @@ function MetricChartCard({
             plot_bgcolor: "#ffffff",
             font: { family: "Segoe UI, Tahoma, sans-serif", color: "#15363a" },
             showlegend: false,
+            hovermode: "x unified",
+            dragmode: "zoom",
             xaxis: {
               showgrid: false,
               tickangle: -20,
               tickfont: { color: "#22454a" },
+              showspikes: true,
+              spikemode: "across",
+              spikecolor: "#2c6066",
+              spikesnap: "cursor",
             },
             yaxis: {
               showgrid: true,
               gridcolor: "rgba(44, 96, 102, 0.2)",
               title: unit,
               tickfont: { color: "#22454a" },
+              showspikes: true,
+              spikemode: "across",
+              spikecolor: "#2c6066",
             },
           },
           {
             responsive: true,
             displaylogo: false,
+            displayModeBar: true,
+            scrollZoom: true,
             modeBarButtonsToRemove: [
               "select2d",
               "lasso2d",
-              "autoScale2d",
               "toggleSpikelines",
             ],
           },
@@ -1022,27 +1053,40 @@ function App() {
             plot_bgcolor: "rgba(255,255,255,0.72)",
             font: { family: "Segoe UI, Tahoma, sans-serif", color: "#15363a" },
             legend: { orientation: "h", y: 1.15, x: 0 },
+            hovermode: "x unified",
+            dragmode: "zoom",
             xaxis: {
               title: "Zaman",
               showgrid: true,
               gridcolor: "rgba(44, 96, 102, 0.12)",
               tickangle: -20,
+              showspikes: true,
+              spikemode: "across",
+              spikecolor: "#2c6066",
             },
             yaxis: {
               title: "Voltaj (V)",
               showgrid: true,
               gridcolor: "rgba(44, 96, 102, 0.15)",
+              showspikes: true,
+              spikemode: "across",
+              spikecolor: "#2c6066",
             },
             yaxis2: {
               title: "Akim (A)",
               overlaying: "y",
               side: "right",
               showgrid: false,
+              showspikes: true,
+              spikemode: "across",
+              spikecolor: "#2c6066",
             },
           },
           {
             responsive: true,
             displaylogo: false,
+            displayModeBar: true,
+            scrollZoom: true,
             modeBarButtonsToRemove: ["select2d", "lasso2d"],
           },
         );
