@@ -326,6 +326,26 @@
   gap: 1rem;
 }
 
+.scientific-panel {
+  margin-top: 1rem;
+  border-radius: 24px;
+  border: 1px solid #a8d4d9;
+  background: linear-gradient(165deg, #f7fffc, #e2f4f3);
+  box-shadow: 0 18px 40px rgba(14, 66, 66, 0.12);
+  padding: 1rem;
+}
+
+.scientific-panel h2 {
+  margin: 0 0 0.85rem;
+  font-size: 1.15rem;
+  color: #13393e;
+}
+
+.scientific-plot {
+  width: 100%;
+  height: 420px;
+}
+
 .metric-card {
   border-radius: 24px;
   padding: 1rem;
@@ -441,6 +461,10 @@
   .recent-table {
     min-width: 680px;
   }
+
+  .scientific-plot {
+    height: 380px;
+  }
 }
 
 @media (max-width: 960px) {
@@ -477,6 +501,10 @@
 
   .charts-grid {
     grid-template-columns: 1fr;
+  }
+
+  .scientific-plot {
+    height: 340px;
   }
 
   .recent-table {
@@ -609,6 +637,15 @@
   .metric-card {
     border-radius: 18px;
     padding: 0.85rem;
+  }
+
+  .scientific-panel {
+    border-radius: 18px;
+    padding: 0.85rem;
+  }
+
+  .scientific-plot {
+    height: 300px;
   }
 
   .metric-card header {

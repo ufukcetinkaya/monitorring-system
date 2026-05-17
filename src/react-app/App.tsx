@@ -73,9 +73,34 @@ type LeafletApi = {
   };
 };
 
+type PlotlyTrace = {
+  x: string[];
+  y: Array<number | null>;
+  name: string;
+  mode: "lines";
+  line?: {
+    width?: number;
+    color?: string;
+    dash?: "solid" | "dot";
+  };
+  yaxis?: "y" | "y2";
+  connectgaps?: boolean;
+};
+
+type PlotlyApi = {
+  newPlot: (
+    target: HTMLElement,
+    data: PlotlyTrace[],
+    layout?: Record<string, unknown>,
+    config?: Record<string, unknown>,
+  ) => Promise<unknown>;
+  purge: (target: HTMLElement) => void;
+};
+
 declare global {
   interface Window {
     L?: LeafletApi;
+    Plotly?: PlotlyApi;
   }
 }
 
@@ -134,6 +159,45 @@ async function loadLeaflet(): Promise<LeafletApi> {
   }
 
   return window.L;
+}
+
+async function loadPlotly(): Promise<PlotlyApi> {
+  if (window.Plotly) {
+    return window.Plotly;
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const existingScript = document.querySelector<HTMLScriptElement>(
+      'script[data-plotly="true"]',
+    );
+
+    if (existingScript) {
+      existingScript.addEventListener("load", () => resolve(), { once: true });
+      existingScript.addEventListener(
+        "error",
+        () => reject(new Error("Plotly yüklenemedi.")),
+        { once: true },
+      );
+      if (window.Plotly) {
+        resolve();
+      }
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://cdn.plot.ly/plotly-2.35.2.min.js";
+    script.dataset.plotly = "true";
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Plotly yüklenemedi."));
+    document.body.appendChild(script);
+  });
+
+  if (!window.Plotly) {
+    throw new Error("Plotly başlatılamadı.");
+  }
+
+  return window.Plotly;
 }
 
 function parseMetric(text: string, aliases: string[]): number | null {
@@ -265,6 +329,39 @@ function buildChartPoints(
     .filter((point): point is string => point !== null)
     .join(" ");
 }
+
+function movingAverage(
+  values: Array<number | null>,
+  windowSize: number,
+): Array<number | null> {
+  if (windowSize <= 1) {
+    return [...values];
+  }
+
+  return values.map((_, index) => {
+    const start = Math.max(0, index - windowSize + 1);
+    const windowValues = values.slice(start, index + 1).filter(
+      (value): value is number => typeof value === "number",
+    );
+
+    if (windowValues.length === 0) {
+      return null;
+    }
+
+    const sum = windowValues.reduce((acc, value) => acc + value, 0);
+    return sum / windowValues.length;
+  });
+}
+
+const FIXED_VOLTAGE_THRESHOLDS = {
+  lower: 210,
+  upper: 250,
+};
+
+const FIXED_CURRENT_THRESHOLDS = {
+  lower: 0,
+  upper: 20,
+};
 
 function createMetricTitle(key: MetricKey): string {
   if (key === "voltage") {
@@ -458,6 +555,7 @@ function App() {
     Record<string, PingResultItem[]>
   >({});
   const mapElementRef = useRef<HTMLDivElement | null>(null);
+  const scientificChartRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LeafletMapInstance | null>(null);
   const markerLayerRef = useRef<{ clearLayers: () => void } | null>(null);
   const isRefreshingMarkersRef = useRef(false);
@@ -748,6 +846,211 @@ function App() {
   const chartHistory = sortedDeviceHistory.slice(-20);
   const latestRows = [...chartHistory].reverse().slice(0, 8);
 
+  useEffect(() => {
+    if (
+      !isAuthenticated ||
+      dashboardView !== "charts" ||
+      !scientificChartRef.current
+    ) {
+      return;
+    }
+
+    if (chartHistory.length === 0) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const renderScientificChart = async () => {
+      try {
+        const plotly = await loadPlotly();
+        if (!isMounted || !scientificChartRef.current) {
+          return;
+        }
+
+        const labels = chartHistory.map((item) =>
+          new Date(item.checkedAt).toLocaleString("tr-TR", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          }),
+        );
+
+        const v1Values = chartHistory.map((item) => item.v1);
+        const v2Values = chartHistory.map((item) => item.v2);
+        const v3Values = chartHistory.map((item) => item.v3);
+        const i1Values = chartHistory.map((item) => item.i1);
+        const i2Values = chartHistory.map((item) => item.i2);
+        const i3Values = chartHistory.map((item) => item.i3);
+
+        const v1Ma = movingAverage(v1Values, 3);
+        const i1Ma = movingAverage(i1Values, 3);
+
+        const traces: PlotlyTrace[] = [
+          {
+            x: labels,
+            y: v1Values,
+            name: "V1",
+            mode: "lines",
+            line: { width: 2.3, color: "#0f766e" },
+            yaxis: "y",
+            connectgaps: true,
+          },
+          {
+            x: labels,
+            y: v2Values,
+            name: "V2",
+            mode: "lines",
+            line: { width: 2, color: "#14b8a6", dash: "dot" },
+            yaxis: "y",
+            connectgaps: true,
+          },
+          {
+            x: labels,
+            y: v3Values,
+            name: "V3",
+            mode: "lines",
+            line: { width: 2, color: "#0b8a59" },
+            yaxis: "y",
+            connectgaps: true,
+          },
+          {
+            x: labels,
+            y: v1Ma,
+            name: "V1 MA(3)",
+            mode: "lines",
+            line: { width: 2.2, color: "#065f46", dash: "dot" },
+            yaxis: "y",
+            connectgaps: true,
+          },
+          {
+            x: labels,
+            y: labels.map(() => FIXED_VOLTAGE_THRESHOLDS.upper),
+            name: "V ust esik",
+            mode: "lines",
+            line: { width: 1.3, color: "#b45309", dash: "dot" },
+            yaxis: "y",
+            connectgaps: true,
+          },
+          {
+            x: labels,
+            y: labels.map(() => FIXED_VOLTAGE_THRESHOLDS.lower),
+            name: "V alt esik",
+            mode: "lines",
+            line: { width: 1.3, color: "#d97706", dash: "dot" },
+            yaxis: "y",
+            connectgaps: true,
+          },
+          {
+            x: labels,
+            y: i1Values,
+            name: "I1",
+            mode: "lines",
+            line: { width: 2.3, color: "#2563eb" },
+            yaxis: "y2",
+            connectgaps: true,
+          },
+          {
+            x: labels,
+            y: i2Values,
+            name: "I2",
+            mode: "lines",
+            line: { width: 2, color: "#60a5fa", dash: "dot" },
+            yaxis: "y2",
+            connectgaps: true,
+          },
+          {
+            x: labels,
+            y: i3Values,
+            name: "I3",
+            mode: "lines",
+            line: { width: 2, color: "#1d4ed8" },
+            yaxis: "y2",
+            connectgaps: true,
+          },
+          {
+            x: labels,
+            y: i1Ma,
+            name: "I1 MA(3)",
+            mode: "lines",
+            line: { width: 2.2, color: "#1e3a8a", dash: "dot" },
+            yaxis: "y2",
+            connectgaps: true,
+          },
+          {
+            x: labels,
+            y: labels.map(() => FIXED_CURRENT_THRESHOLDS.upper),
+            name: "I ust esik",
+            mode: "lines",
+            line: { width: 1.3, color: "#7c3aed", dash: "dot" },
+            yaxis: "y2",
+            connectgaps: true,
+          },
+          {
+            x: labels,
+            y: labels.map(() => FIXED_CURRENT_THRESHOLDS.lower),
+            name: "I alt esik",
+            mode: "lines",
+            line: { width: 1.3, color: "#6366f1", dash: "dot" },
+            yaxis: "y2",
+            connectgaps: true,
+          },
+        ];
+
+        await plotly.newPlot(
+          scientificChartRef.current,
+          traces,
+          {
+            margin: { l: 54, r: 54, t: 30, b: 52 },
+            paper_bgcolor: "rgba(0,0,0,0)",
+            plot_bgcolor: "rgba(255,255,255,0.72)",
+            font: { family: "Segoe UI, Tahoma, sans-serif", color: "#15363a" },
+            legend: { orientation: "h", y: 1.15, x: 0 },
+            xaxis: {
+              title: "Zaman",
+              showgrid: true,
+              gridcolor: "rgba(44, 96, 102, 0.12)",
+              tickangle: -20,
+            },
+            yaxis: {
+              title: "Voltaj (V)",
+              showgrid: true,
+              gridcolor: "rgba(44, 96, 102, 0.15)",
+            },
+            yaxis2: {
+              title: "Akim (A)",
+              overlaying: "y",
+              side: "right",
+              showgrid: false,
+            },
+          },
+          {
+            responsive: true,
+            displaylogo: false,
+            modeBarButtonsToRemove: ["select2d", "lasso2d"],
+          },
+        );
+      } catch (error) {
+        if (isMounted) {
+          setLoadError(
+            error instanceof Error
+              ? error.message
+              : "Bilimsel grafik oluşturulamadı.",
+          );
+        }
+      }
+    };
+
+    void renderScientificChart();
+
+    return () => {
+      isMounted = false;
+      if (window.Plotly && scientificChartRef.current) {
+        window.Plotly.purge(scientificChartRef.current);
+      }
+    };
+  }, [isAuthenticated, dashboardView, chartHistory]);
+
   const metrics: MetricKey[] = [
     "voltage",
     "current",
@@ -789,6 +1092,11 @@ function App() {
             </span>
           </div>
         </header>
+
+        <section className="scientific-panel" aria-label="Bilimsel trend grafigi">
+          <h2>Bilimsel Trend Grafigi (MA(3) ve Sabit Esikler)</h2>
+          <div ref={scientificChartRef} className="scientific-plot" />
+        </section>
 
         <section className="charts-grid" aria-label="Cihaz metrik grafikleri">
           {metrics.map((metric) => (
