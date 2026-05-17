@@ -11,6 +11,12 @@ type PingResultItem = {
   deviceAddress: string;
   status: "up" | "down";
   latencyMs: number | null;
+  v1: number | null;
+  v2: number | null;
+  v3: number | null;
+  i1: number | null;
+  i2: number | null;
+  i3: number | null;
   voltage: number | null;
   current: number | null;
   temperature: number | null;
@@ -45,8 +51,14 @@ function mapDeviceDataRow(row: Record<string, unknown>): PingResultItem {
     ),
     status,
     latencyMs: toNumberOrNull(row.latency_ms ?? row.latencyMs),
-    voltage: toNumberOrNull(row.voltage),
-    current: toNumberOrNull(row.current),
+    v1: toNumberOrNull(row.v1 ?? row.V1),
+    v2: toNumberOrNull(row.v2 ?? row.V2),
+    v3: toNumberOrNull(row.v3 ?? row.V3),
+    i1: toNumberOrNull(row.i1 ?? row.I1),
+    i2: toNumberOrNull(row.i2 ?? row.I2),
+    i3: toNumberOrNull(row.i3 ?? row.I3),
+    voltage: toNumberOrNull(row.voltage ?? row.v1 ?? row.V1),
+    current: toNumberOrNull(row.current ?? row.i1 ?? row.I1),
     temperature: toNumberOrNull(row.temperature),
     latitude: toNumberOrNull(row.latitude),
     longitude: toNumberOrNull(row.longitude),
@@ -181,14 +193,20 @@ app.get("/api/ping-results", async (c) => {
         device_address,
         status,
         latency_ms,
-        voltage,
-        current,
+        v1,
+        v2,
+        v3,
+        i1,
+        i2,
+        i3,
+        v1 AS voltage,
+        i1 AS current,
         temperature,
         latitude,
         longitude,
         checked_at,
         message
-      FROM device_datas
+      FROM rectifier_db.device_logs
       ORDER BY checked_at DESC
       LIMIT 200`,
     ).all();
@@ -204,14 +222,20 @@ app.get("/api/ping-results", async (c) => {
           deviceAddress,
           status,
           latencyMs,
-          voltage,
-          current,
+          V1 AS v1,
+          V2 AS v2,
+          V3 AS v3,
+          I1 AS i1,
+          I2 AS i2,
+          I3 AS i3,
+          V1 AS voltage,
+          I1 AS current,
           temperature,
           latitude,
           longitude,
           checkedAt,
           message
-        FROM device_datas
+        FROM device_logs
         ORDER BY checkedAt DESC
         LIMIT 200`,
       ).all();
@@ -220,7 +244,40 @@ app.get("/api/ping-results", async (c) => {
         items: (camelCaseResult.results ?? []).map(mapDeviceDataRow),
       });
     } catch {
-      return c.json({ error: "device_datas tablosundan veri okunamadı." }, 500);
+      try {
+        const schemaCamelCaseResult = await c.env.RECTIFIER_DB.prepare(
+          `SELECT
+            deviceName,
+            deviceAddress,
+            status,
+            latencyMs,
+            V1 AS v1,
+            V2 AS v2,
+            V3 AS v3,
+            I1 AS i1,
+            I2 AS i2,
+            I3 AS i3,
+            V1 AS voltage,
+            I1 AS current,
+            temperature,
+            latitude,
+            longitude,
+            checkedAt,
+            message
+          FROM rectifier_db.device_logs
+          ORDER BY checkedAt DESC
+          LIMIT 200`,
+        ).all();
+
+        return c.json({
+          items: (schemaCamelCaseResult.results ?? []).map(mapDeviceDataRow),
+        });
+      } catch {
+        return c.json(
+          { error: "device_logs tablosundan veri okunamadı." },
+          500,
+        );
+      }
     }
   }
 });

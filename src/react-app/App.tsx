@@ -6,6 +6,12 @@ type PingResultItem = {
   deviceAddress: string;
   status: string;
   latencyMs: number | null;
+  v1: number | null;
+  v2: number | null;
+  v3: number | null;
+  i1: number | null;
+  i2: number | null;
+  i3: number | null;
   voltage: number | null;
   current: number | null;
   temperature: number | null;
@@ -150,10 +156,16 @@ function withDerivedTelemetry(item: PingResultItem): PingResultItem {
 
   return {
     ...item,
+    v1: item.v1 ?? item.voltage ?? parseMetric(message, ["v1", "voltage", "volt", "voltaj", "v"]),
+    v2: item.v2 ?? parseMetric(message, ["v2"]),
+    v3: item.v3 ?? parseMetric(message, ["v3"]),
+    i1: item.i1 ?? item.current ?? parseMetric(message, ["i1", "current", "akim", "amp", "a"]),
+    i2: item.i2 ?? parseMetric(message, ["i2"]),
+    i3: item.i3 ?? parseMetric(message, ["i3"]),
     voltage:
-      item.voltage ?? parseMetric(message, ["voltage", "volt", "voltaj", "v"]),
+      item.voltage ?? item.v1 ?? parseMetric(message, ["voltage", "volt", "voltaj", "v"]),
     current:
-      item.current ?? parseMetric(message, ["current", "akim", "amp", "a"]),
+      item.current ?? item.i1 ?? parseMetric(message, ["current", "akim", "amp", "a"]),
     temperature:
       item.temperature ??
       parseMetric(message, ["temperature", "sicaklik", "temp", "c"]),
@@ -177,6 +189,12 @@ function createPopupHtml(item: PingResultItem): string {
       <strong style="font-size:14px;">${escapeHtml(item.deviceName)}</strong>
       <div style="font-size:12px;color:#4b5563;margin:2px 0 8px;">${escapeHtml(item.deviceAddress)}</div>
       <div style="font-size:12px;margin:3px 0;"><b>Durum:</b> ${statusText}</div>
+      <div style="font-size:12px;margin:3px 0;"><b>V1:</b> ${item.v1 ?? "-"} V</div>
+      <div style="font-size:12px;margin:3px 0;"><b>V2:</b> ${item.v2 ?? "-"} V</div>
+      <div style="font-size:12px;margin:3px 0;"><b>V3:</b> ${item.v3 ?? "-"} V</div>
+      <div style="font-size:12px;margin:3px 0;"><b>I1:</b> ${item.i1 ?? "-"} A</div>
+      <div style="font-size:12px;margin:3px 0;"><b>I2:</b> ${item.i2 ?? "-"} A</div>
+      <div style="font-size:12px;margin:3px 0;"><b>I3:</b> ${item.i3 ?? "-"} A</div>
       <div style="font-size:12px;margin:3px 0;"><b>Voltaj:</b> ${item.voltage ?? "-"} V</div>
       <div style="font-size:12px;margin:3px 0;"><b>Akim:</b> ${item.current ?? "-"} A</div>
       <div style="font-size:12px;margin:3px 0;"><b>Sicaklik:</b> ${item.temperature ?? "-"} C</div>
@@ -784,6 +802,12 @@ function App() {
               <thead>
                 <tr>
                   <th>Zaman</th>
+                  <th>V1 (V)</th>
+                  <th>V2 (V)</th>
+                  <th>V3 (V)</th>
+                  <th>I1 (A)</th>
+                  <th>I2 (A)</th>
+                  <th>I3 (A)</th>
                   <th>Voltaj (V)</th>
                   <th>Akim (A)</th>
                   <th>Sicaklik (C)</th>
@@ -795,6 +819,12 @@ function App() {
                 {latestRows.map((row) => (
                   <tr key={`${row.deviceAddress}-${row.checkedAt}`}>
                     <td>{new Date(row.checkedAt).toLocaleString("tr-TR")}</td>
+                    <td>{row.v1 ?? "-"}</td>
+                    <td>{row.v2 ?? "-"}</td>
+                    <td>{row.v3 ?? "-"}</td>
+                    <td>{row.i1 ?? "-"}</td>
+                    <td>{row.i2 ?? "-"}</td>
+                    <td>{row.i3 ?? "-"}</td>
                     <td>{row.voltage ?? "-"}</td>
                     <td>{row.current ?? "-"}</td>
                     <td>{row.temperature ?? "-"}</td>
