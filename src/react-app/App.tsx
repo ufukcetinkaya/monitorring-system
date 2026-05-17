@@ -77,11 +77,16 @@ type PlotlyTrace = {
   x: string[];
   y: Array<number | null>;
   name: string;
-  mode: "lines";
+  mode: "lines" | "lines+markers";
   line?: {
     width?: number;
     color?: string;
     dash?: "solid" | "dot";
+  };
+  marker?: {
+    size?: number;
+    color?: string;
+    opacity?: number;
   };
   yaxis?: "y" | "y2";
   connectgaps?: boolean;
@@ -375,18 +380,18 @@ function createMetricUnit(key: MetricKey): string {
 
 function createMetricColor(key: MetricKey): string {
   if (key === "voltage") {
-    return "#1f8a70";
+    return "#0b8a59";
   }
 
   if (key === "current") {
-    return "#1976d2";
+    return "#1452cc";
   }
 
   if (key === "temperature") {
-    return "#d97706";
+    return "#ef4444";
   }
 
-  return "#a21caf";
+  return "#d946ef";
 }
 
 function createMetricValues(
@@ -455,25 +460,28 @@ function MetricChartCard({
               x: xLabels,
               y: values,
               name: title,
-              mode: "lines",
-              line: { width: 2.6, color },
+              mode: "lines+markers",
+              line: { width: 3.4, color },
+              marker: { size: 5, color, opacity: 1 },
               connectgaps: true,
             },
           ],
           {
             margin: { l: 40, r: 16, t: 8, b: 36 },
             paper_bgcolor: "rgba(0,0,0,0)",
-            plot_bgcolor: "rgba(255,255,255,0.72)",
-            font: { family: "Segoe UI, Tahoma, sans-serif", color: "#24464a" },
+            plot_bgcolor: "#ffffff",
+            font: { family: "Segoe UI, Tahoma, sans-serif", color: "#15363a" },
             showlegend: false,
             xaxis: {
               showgrid: false,
               tickangle: -20,
+              tickfont: { color: "#22454a" },
             },
             yaxis: {
               showgrid: true,
-              gridcolor: "rgba(44, 96, 102, 0.14)",
+              gridcolor: "rgba(44, 96, 102, 0.2)",
               title: unit,
+              tickfont: { color: "#22454a" },
             },
           },
           {
