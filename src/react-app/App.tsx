@@ -305,6 +305,22 @@ function formatMetricValue(value: number | null, unit: string): string {
   return `${value.toFixed(2)} ${unit}`;
 }
 
+function getHistoryFingerprint(item: PingResultItem): string {
+  return [
+    item.deviceAddress,
+    item.checkedAt,
+    item.status,
+    item.latencyMs ?? "",
+    item.v1 ?? "",
+    item.v2 ?? "",
+    item.v3 ?? "",
+    item.i1 ?? "",
+    item.i2 ?? "",
+    item.i3 ?? "",
+    item.temperature ?? "",
+  ].join("|");
+}
+
 function movingAverage(
   values: Array<number | null>,
   windowSize: number,
@@ -627,19 +643,29 @@ function App() {
       setDeviceHistory((previousHistory) => {
         const nextHistory = { ...previousHistory };
 
+        const byDevice = new Map<string, PingResultItem[]>();
         normalizedItems.forEach((item) => {
           const key = getDeviceKey(item);
-          const series = nextHistory[key] ?? [];
-          const latestItem = series[series.length - 1];
+          const existing = byDevice.get(key) ?? [];
+          existing.push(item);
+          byDevice.set(key, existing);
+        });
 
-          if (
-            latestItem?.checkedAt === item.checkedAt &&
-            latestItem?.deviceAddress === item.deviceAddress
-          ) {
-            return;
-          }
+        byDevice.forEach((items, key) => {
+          const previousSeries = nextHistory[key] ?? [];
+          const merged = [...previousSeries, ...items];
+          const uniqueByFingerprint = new Map<string, PingResultItem>();
 
-          nextHistory[key] = [...series, item].slice(-80);
+          merged.forEach((entry) => {
+            uniqueByFingerprint.set(getHistoryFingerprint(entry), entry);
+          });
+
+          const orderedSeries = [...uniqueByFingerprint.values()].sort(
+            (a, b) =>
+              new Date(a.checkedAt).getTime() - new Date(b.checkedAt).getTime(),
+          );
+
+          nextHistory[key] = orderedSeries.slice(-80);
         });
 
         return nextHistory;
