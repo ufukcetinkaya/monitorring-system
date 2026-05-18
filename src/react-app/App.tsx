@@ -654,7 +654,7 @@ function App() {
   };
 
   useEffect(() => {
-    if (!isAuthenticated || dashboardView !== "map") {
+    if (!isAuthenticated) {
       return;
     }
 
@@ -664,7 +664,7 @@ function App() {
     }, 5000);
 
     return () => clearInterval(timer);
-  }, [isAuthenticated, dashboardView]);
+  }, [isAuthenticated]);
 
   const points: MapPoint[] = pingResults
     .map((item, index) => {
