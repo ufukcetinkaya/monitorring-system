@@ -297,6 +297,11 @@ function getDeviceKey(item: Pick<PingResultItem, "deviceName">) {
   return item.deviceName;
 }
 
+function toCheckedAtTimestamp(item: Pick<PingResultItem, "checkedAt">): number {
+  const parsed = new Date(item.checkedAt).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function formatMetricValue(value: number | null, unit: string): string {
   if (typeof value !== "number") {
     return "-";
@@ -692,8 +697,25 @@ function App() {
     return () => clearInterval(timer);
   }, [isAuthenticated]);
 
-  const points: MapPoint[] = pingResults
-    .map((item, index) => {
+  const latestByDevice = new Map<string, PingResultItem>();
+  pingResults.forEach((item) => {
+    const key = getDeviceKey(item);
+    const previous = latestByDevice.get(key);
+
+    if (!previous) {
+      latestByDevice.set(key, item);
+      return;
+    }
+
+    if (toCheckedAtTimestamp(item) >= toCheckedAtTimestamp(previous)) {
+      latestByDevice.set(key, item);
+    }
+  });
+
+  const latestDeviceItems = [...latestByDevice.values()];
+
+  const points: MapPoint[] = latestDeviceItems
+    .map((item) => {
       if (
         typeof item.latitude !== "number" ||
         typeof item.longitude !== "number"
@@ -702,7 +724,7 @@ function App() {
       }
 
       return {
-        id: `${item.deviceName}-${item.deviceAddress}-${item.checkedAt}-${index}`,
+        id: `${item.deviceName}-${item.deviceAddress}-${item.checkedAt}`,
         lat: item.latitude,
         lon: item.longitude,
         item,
@@ -710,7 +732,7 @@ function App() {
     })
     .filter((point): point is MapPoint => point !== null);
 
-  const devicesWithoutCoordinates = pingResults.length - points.length;
+  const devicesWithoutCoordinates = latestDeviceItems.length - points.length;
 
   const activePoint =
     points.find((point) => point.id === activePointId) ?? null;
