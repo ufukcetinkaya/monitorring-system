@@ -131,6 +131,10 @@ function toUpdateFlag(value: unknown): 0 | 1 {
   return 0;
 }
 
+function normalizeImeiNo(value: string | undefined): string {
+  return (value ?? "").trim().replace(/^:+/, "");
+}
+
 app.get("/api/", (c) => c.json({ name: "Cloudflare" }));
 
 app.post("/api/login", async (c) => {
@@ -291,7 +295,7 @@ app.get("/api/ping-results", async (c) => {
 });
 
 app.get("/api/ota/:imeiNo", async (c) => {
-  const imeiNo = c.req.param("imeiNo")?.trim();
+  const imeiNo = normalizeImeiNo(c.req.param("imeiNo"));
 
   if (!imeiNo) {
     return c.text("NULL", 400);
@@ -300,10 +304,10 @@ app.get("/api/ota/:imeiNo", async (c) => {
   const selectVariants = [
     {
       sql: `SELECT ota_filepath, is_updated
-            FROM rectifier_db.device_logs
-            WHERE imei_no = ?
-            ORDER BY checked_at DESC
-            LIMIT 1`,
+              FROM rectifier_db.device_ota
+              WHERE imei_no = ?
+              ORDER BY id DESC
+              LIMIT 1`,
       map: (row: Record<string, unknown>) => ({
         otaFilepath: row.ota_filepath,
         isUpdated: row.is_updated,
@@ -311,10 +315,10 @@ app.get("/api/ota/:imeiNo", async (c) => {
     },
     {
       sql: `SELECT otaFilepath, isUpdated
-            FROM rectifier_db.device_logs
-            WHERE imeiNo = ?
-            ORDER BY checkedAt DESC
-            LIMIT 1`,
+              FROM rectifier_db.device_ota
+              WHERE imeiNo = ?
+              ORDER BY id DESC
+              LIMIT 1`,
       map: (row: Record<string, unknown>) => ({
         otaFilepath: row.otaFilepath,
         isUpdated: row.isUpdated,
@@ -322,10 +326,10 @@ app.get("/api/ota/:imeiNo", async (c) => {
     },
     {
       sql: `SELECT ota_filepath, is_updated
-            FROM device_logs
-            WHERE imei_no = ?
-            ORDER BY checked_at DESC
-            LIMIT 1`,
+              FROM device_ota
+              WHERE imei_no = ?
+              ORDER BY id DESC
+              LIMIT 1`,
       map: (row: Record<string, unknown>) => ({
         otaFilepath: row.ota_filepath,
         isUpdated: row.is_updated,
@@ -333,10 +337,50 @@ app.get("/api/ota/:imeiNo", async (c) => {
     },
     {
       sql: `SELECT otaFilepath, isUpdated
-            FROM device_logs
-            WHERE imeiNo = ?
-            ORDER BY checkedAt DESC
-            LIMIT 1`,
+              FROM device_ota
+              WHERE imeiNo = ?
+              ORDER BY id DESC
+              LIMIT 1`,
+      map: (row: Record<string, unknown>) => ({
+        otaFilepath: row.otaFilepath,
+        isUpdated: row.isUpdated,
+      }),
+    },
+    {
+      sql: `SELECT ota_filepath, is_updated
+              FROM rectifier_db.device_ota
+              WHERE imei_no = ?
+              LIMIT 1`,
+      map: (row: Record<string, unknown>) => ({
+        otaFilepath: row.ota_filepath,
+        isUpdated: row.is_updated,
+      }),
+    },
+    {
+      sql: `SELECT otaFilepath, isUpdated
+              FROM rectifier_db.device_ota
+              WHERE imeiNo = ?
+              LIMIT 1`,
+      map: (row: Record<string, unknown>) => ({
+        otaFilepath: row.otaFilepath,
+        isUpdated: row.isUpdated,
+      }),
+    },
+    {
+      sql: `SELECT ota_filepath, is_updated
+              FROM device_ota
+              WHERE imei_no = ?
+              LIMIT 1`,
+      map: (row: Record<string, unknown>) => ({
+        otaFilepath: row.ota_filepath,
+        isUpdated: row.is_updated,
+      }),
+    },
+    {
+      sql: `SELECT otaFilepath, isUpdated
+              FROM device_ota
+              WHERE imeiNo = ?
+              LIMIT 1`,
       map: (row: Record<string, unknown>) => ({
         otaFilepath: row.otaFilepath,
         isUpdated: row.isUpdated,
@@ -383,7 +427,7 @@ app.post("/api/ota/update", async (c) => {
     return c.json({ error: "Geçersiz JSON payload." }, 400);
   }
 
-  const imeiNo = (body.imei_no ?? body.imeiNo ?? "").trim();
+  const imeiNo = normalizeImeiNo(body.imei_no ?? body.imeiNo);
   if (!imeiNo) {
     return c.json({ error: "imei_no zorunludur." }, 400);
   }
@@ -392,25 +436,25 @@ app.post("/api/ota/update", async (c) => {
 
   const updateVariants = [
     {
-      sql: `UPDATE rectifier_db.device_logs
+      sql: `UPDATE rectifier_db.device_ota
             SET is_updated = ?
             WHERE imei_no = ?`,
       bind: [nextIsUpdated, imeiNo],
     },
     {
-      sql: `UPDATE rectifier_db.device_logs
+      sql: `UPDATE rectifier_db.device_ota
             SET isUpdated = ?
             WHERE imeiNo = ?`,
       bind: [nextIsUpdated, imeiNo],
     },
     {
-      sql: `UPDATE device_logs
+      sql: `UPDATE device_ota
             SET is_updated = ?
             WHERE imei_no = ?`,
       bind: [nextIsUpdated, imeiNo],
     },
     {
-      sql: `UPDATE device_logs
+      sql: `UPDATE device_ota
             SET isUpdated = ?
             WHERE imeiNo = ?`,
       bind: [nextIsUpdated, imeiNo],
