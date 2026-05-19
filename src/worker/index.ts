@@ -123,6 +123,14 @@ async function sha256Hex(value: string): Promise<string> {
   );
 }
 
+function toUpdateFlag(value: unknown): 0 | 1 {
+  if (value === 1 || value === "1" || value === true) {
+    return 1;
+  }
+
+  return 0;
+}
+
 app.get("/api/", (c) => c.json({ name: "Cloudflare" }));
 
 app.post("/api/login", async (c) => {
@@ -280,6 +288,153 @@ app.get("/api/ping-results", async (c) => {
       }
     }
   }
+});
+
+app.get("/api/ota/:imeiNo", async (c) => {
+  const imeiNo = c.req.param("imeiNo")?.trim();
+
+  if (!imeiNo) {
+    return c.text("NULL", 400);
+  }
+
+  const selectVariants = [
+    {
+      sql: `SELECT ota_filepath, is_updated
+            FROM rectifier_db.device_logs
+            WHERE imei_no = ?
+            ORDER BY checked_at DESC
+            LIMIT 1`,
+      map: (row: Record<string, unknown>) => ({
+        otaFilepath: row.ota_filepath,
+        isUpdated: row.is_updated,
+      }),
+    },
+    {
+      sql: `SELECT otaFilepath, isUpdated
+            FROM rectifier_db.device_logs
+            WHERE imeiNo = ?
+            ORDER BY checkedAt DESC
+            LIMIT 1`,
+      map: (row: Record<string, unknown>) => ({
+        otaFilepath: row.otaFilepath,
+        isUpdated: row.isUpdated,
+      }),
+    },
+    {
+      sql: `SELECT ota_filepath, is_updated
+            FROM device_logs
+            WHERE imei_no = ?
+            ORDER BY checked_at DESC
+            LIMIT 1`,
+      map: (row: Record<string, unknown>) => ({
+        otaFilepath: row.ota_filepath,
+        isUpdated: row.is_updated,
+      }),
+    },
+    {
+      sql: `SELECT otaFilepath, isUpdated
+            FROM device_logs
+            WHERE imeiNo = ?
+            ORDER BY checkedAt DESC
+            LIMIT 1`,
+      map: (row: Record<string, unknown>) => ({
+        otaFilepath: row.otaFilepath,
+        isUpdated: row.isUpdated,
+      }),
+    },
+  ] as const;
+
+  for (const variant of selectVariants) {
+    try {
+      const row = await c.env.RECTIFIER_DB.prepare(variant.sql)
+        .bind(imeiNo)
+        .first<Record<string, unknown>>();
+
+      if (!row) {
+        continue;
+      }
+
+      const mapped = variant.map(row);
+      const updateFlag = toUpdateFlag(mapped.isUpdated);
+      const otaPath = String(mapped.otaFilepath ?? "").trim();
+
+      if (updateFlag === 0 && otaPath) {
+        return c.text(otaPath, 200);
+      }
+
+      return c.text("NULL", 200);
+    } catch {
+      continue;
+    }
+  }
+
+  return c.text("NULL", 200);
+});
+
+app.post("/api/ota/update", async (c) => {
+  const body = (await c.req.json().catch(() => null)) as {
+    imei_no?: string;
+    imeiNo?: string;
+    is_updated?: number | string | boolean;
+    isUpdated?: number | string | boolean;
+  } | null;
+
+  if (!body) {
+    return c.json({ error: "Geçersiz JSON payload." }, 400);
+  }
+
+  const imeiNo = (body.imei_no ?? body.imeiNo ?? "").trim();
+  if (!imeiNo) {
+    return c.json({ error: "imei_no zorunludur." }, 400);
+  }
+
+  const nextIsUpdated = toUpdateFlag(body.is_updated ?? body.isUpdated ?? 1);
+
+  const updateVariants = [
+    {
+      sql: `UPDATE rectifier_db.device_logs
+            SET is_updated = ?
+            WHERE imei_no = ?`,
+      bind: [nextIsUpdated, imeiNo],
+    },
+    {
+      sql: `UPDATE rectifier_db.device_logs
+            SET isUpdated = ?
+            WHERE imeiNo = ?`,
+      bind: [nextIsUpdated, imeiNo],
+    },
+    {
+      sql: `UPDATE device_logs
+            SET is_updated = ?
+            WHERE imei_no = ?`,
+      bind: [nextIsUpdated, imeiNo],
+    },
+    {
+      sql: `UPDATE device_logs
+            SET isUpdated = ?
+            WHERE imeiNo = ?`,
+      bind: [nextIsUpdated, imeiNo],
+    },
+  ] as const;
+
+  for (const variant of updateVariants) {
+    try {
+      const result = await c.env.RECTIFIER_DB.prepare(variant.sql)
+        .bind(...variant.bind)
+        .run();
+
+      if ((result.meta.changes ?? 0) > 0) {
+        return c.json({ ok: true, imeiNo, isUpdated: nextIsUpdated });
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return c.json(
+    { error: "Güncellenecek kayıt bulunamadı veya update başarısız." },
+    404,
+  );
 });
 
 app.post("/api/messages", async (c) => {
