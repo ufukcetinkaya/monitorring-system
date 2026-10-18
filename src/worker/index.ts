@@ -841,4 +841,30 @@ app.post("/api/ping", async (c) => {
   }
 });
 
+const UNITY_BR_TYPES: Record<string, string> = {
+  ".data.br": "application/octet-stream",
+  ".framework.js.br": "application/javascript",
+  ".wasm.br": "application/wasm",
+};
+
+// Unity WebGL Brotli build dosyaları: statik asset katmanı Content-Encoding'i koruyamadığı için burada elle veriliyor.
+app.get("/unvisible_wounds/Build/*", async (c) => {
+  const suffix = Object.keys(UNITY_BR_TYPES).find((s) => c.req.path.endsWith(s));
+  const assets = (c.env as unknown as { ASSETS: Fetcher }).ASSETS;
+  const asset = await assets.fetch(c.req.raw);
+  if (!suffix || !asset.ok) {
+    return asset;
+  }
+
+  return new Response(asset.body, {
+    status: 200,
+    headers: {
+      "Content-Type": UNITY_BR_TYPES[suffix],
+      "Content-Encoding": "br",
+      "Cache-Control": "public, max-age=0, must-revalidate",
+    },
+    encodeBody: "manual",
+  } as ResponseInit);
+});
+
 export default app;
